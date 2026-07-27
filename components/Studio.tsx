@@ -603,37 +603,159 @@ export default function Studio() {
                   <h3 className="font-display text-sm font-bold text-ink">塗り替え部位＆カラーパレット</h3>
                 </div>
 
-                {/* Part selector tabs */}
-                <div className="grid grid-cols-2 gap-1 mb-4 bg-paper p-1 rounded-xl border border-line">
-                  {PAINT_PARTS.map((part) => (
-                    <button
-                      key={part.id}
-                      type="button"
-                      onClick={() => setSelectedPart(part.id)}
-                      className={`rounded-lg py-1.5 text-2xs font-semibold transition-all ${
-                        selectedPart === part.id
-                          ? 'bg-ink text-paper shadow-sm'
-                          : 'text-ink-soft hover:bg-paper-raised hover:text-ink'
-                      }`}
-                    >
-                      {part.label}
-                    </button>
-                  ))}
+                {/* Accordion Paint Parts */}
+                <div className="space-y-3">
+                  {PAINT_PARTS.map((part) => {
+                    const isPartOpen = selectedPart === part.id;
+                    const currentColor = getColorDetails(part.id);
+                    
+                    return (
+                      <div key={part.id} className="border border-line rounded-2xl bg-paper overflow-hidden shadow-2xs transition-all">
+                        {/* Accordion Header */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPart(isPartOpen ? '' : part.id)}
+                          className={`w-full flex items-center justify-between p-3.5 cursor-pointer transition-colors ${
+                            isPartOpen ? 'bg-paper-raised' : 'hover:bg-paper-raised/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay/90 text-[9px] font-bold text-paper">
+                              {part.id === 'main' ? 'M' : part.id === 'accent' ? 'A' : part.id === 'roof' ? 'R' : 'T'}
+                            </span>
+                            <span className="text-xs font-bold text-ink">{part.label}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-3.5 w-3.5 rounded-full border border-ink/10 shadow-inner"
+                              style={{ backgroundColor: currentColor.hex }}
+                            />
+                            <span className="text-[10px] font-bold text-ink-soft">
+                              {currentColor.label}
+                            </span>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className={`text-ink-faint transition-transform duration-200 ${isPartOpen ? 'rotate-180' : ''}`}
+                            >
+                              <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Accordion Content (Color Palette) */}
+                        {isPartOpen && (
+                          <div className="p-4 border-t border-line bg-paper-raised/50 animate-fade-in">
+                            <p className="text-[9px] font-bold text-ink-faint mb-2.5 uppercase tracking-wider">
+                              カラーを選択してください
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5 gap-2">
+                              {/* Custom Sample Color Swatch (Show first if extracted) */}
+                              {customColor.hex && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPartColors((prev) => ({ ...prev, [part.id]: 'custom_sample' }));
+                                    setResultImage(null);
+                                    setErrorMsg(null);
+                                  }}
+                                  className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-all ${
+                                    partColors[part.id] === 'custom_sample'
+                                      ? 'border-clay bg-clay-soft shadow-sm scale-102 font-bold'
+                                      : 'border-line bg-paper hover:border-line-strong'
+                                  }`}
+                                >
+                                  <span
+                                    className="h-7 w-7 rounded-full border border-ink/10 shadow-inner"
+                                    style={{ backgroundColor: customColor.hex }}
+                                  />
+                                  <div className="flex flex-col items-center min-h-[30px] justify-center">
+                                    <span className="text-[9px] font-bold text-ink leading-tight">
+                                      カスタム抽出色
+                                    </span>
+                                    <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
+                                      {customColor.hex}
+                                    </span>
+                                  </div>
+                                </button>
+                              )}
+
+                              {/* Standard Swatches */}
+                              {PAINT_COLORS.map((color) => {
+                                const isColorSelected = partColors[part.id] === color.id;
+                                return (
+                                  <button
+                                    key={color.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setPartColors((prev) => ({ ...prev, [part.id]: color.id }));
+                                      setResultImage(null);
+                                      setErrorMsg(null);
+                                    }}
+                                    className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-all ${
+                                      isColorSelected
+                                        ? 'border-clay bg-clay-soft shadow-sm scale-102'
+                                        : 'border-line bg-paper hover:-translate-y-0.5 hover:border-line-strong'
+                                    }`}
+                                  >
+                                    <span
+                                      className="h-7 w-7 rounded-full border border-ink/10 shadow-inner"
+                                      style={{ backgroundColor: color.hex }}
+                                    />
+                                    <div className="flex flex-col items-center min-h-[30px] justify-center">
+                                      <span className="text-[9px] font-bold text-ink leading-tight">
+                                        {color.label}
+                                      </span>
+                                      <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
+                                        {color.jpma}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Custom Color/Texture Sample Upload */}
-                <div className="mb-4 rounded-xl border border-line bg-paper p-3">
-                  <p className="text-[10px] font-bold text-ink-soft mb-2 uppercase tracking-wider">
-                    希望色サンプルのアップロード（自動抽出）
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
+                {/* 明示的なカラーサンプル画像アップロード枠 */}
+                <div className="mt-6 rounded-2xl border-2 border-dashed border-line-strong bg-paper p-5 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => colorSampleInputRef.current?.click()}
-                      className="flex-1 min-w-[120px] cursor-pointer rounded-lg border border-dashed border-line-strong hover:border-ink-faint bg-paper-raised py-2.5 px-3 text-center text-[10px] font-bold text-ink transition-colors"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          colorSampleInputRef.current?.click();
+                        }
+                      }}
+                      className="w-full flex flex-col items-center justify-center gap-2.5 py-4 cursor-pointer hover:bg-paper-raised rounded-xl transition-all"
                     >
-                      色・質感サンプル画像をアップロード
-                    </button>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-ink-faint">
+                        <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M16 8l-4-4M12 4L8 8M12 4v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <div>
+                        <p className="text-[11px] font-bold text-ink">
+                          または希望のカラーサンプル画像をアップロード
+                        </p>
+                        <p className="text-[9px] text-ink-soft leading-normal mt-1 max-w-xs mx-auto">
+                          塗料見本や希望する色の写真をドラッグ＆ドロップ、またはクリックしてアップロード。自動で色味を抽出してシミュレーションに適用します。
+                        </p>
+                      </div>
+                    </div>
+
                     <input
                       ref={colorSampleInputRef}
                       type="file"
@@ -644,76 +766,54 @@ export default function Studio() {
                         e.target.value = '';
                       }}
                     />
+
                     {customColor.hex && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPartColors((prev) => ({ ...prev, [selectedPart]: 'custom_sample' }));
-                          setResultImage(null);
-                          setErrorMsg(null);
-                        }}
-                        className={`flex items-center gap-2 rounded-xl border p-2 text-center transition-all ${
-                          partColors[selectedPart] === 'custom_sample'
-                            ? 'border-clay bg-clay-soft shadow-sm scale-102'
-                            : 'border-line bg-paper hover:border-line-strong'
-                        }`}
-                      >
-                        <span
-                          className="h-6 w-6 rounded-full border border-ink/10 shadow-inner"
-                          style={{ backgroundColor: customColor.hex }}
-                        />
-                        <div className="flex flex-col items-start text-left">
-                          <span className="text-[9px] font-bold text-ink leading-tight">
-                            抽出カスタム色
-                          </span>
-                          <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
-                            {customColor.hex}
-                          </span>
+                      <div className="w-full mt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-paper-raised p-3 rounded-xl border border-line animate-fade-in text-left">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="h-7 w-7 rounded-full border border-ink/10 shadow-inner"
+                            style={{ backgroundColor: customColor.hex }}
+                          />
+                          <div>
+                            <p className="text-[9px] font-bold text-ink-soft leading-none">
+                              自動抽出カラー
+                            </p>
+                            <p className="text-[10px] font-mono font-bold text-clay mt-1 leading-none">
+                              {customColor.hex}
+                            </p>
+                          </div>
                         </div>
-                      </button>
+                        
+                        <div className="flex items-center gap-2 select-none">
+                          <span className="text-[9px] font-bold text-ink-soft">
+                            適用部位:
+                          </span>
+                          <select
+                            value={selectedPart}
+                            onChange={(e) => {
+                              const newPart = e.target.value;
+                              setSelectedPart(newPart);
+                              setPartColors((prev) => ({ ...prev, [newPart]: 'custom_sample' }));
+                              setResultImage(null);
+                              setErrorMsg(null);
+                            }}
+                            className="text-[10px] bg-paper border border-line rounded px-2.5 py-1.5 font-bold text-ink focus:outline-none cursor-pointer"
+                          >
+                            {PAINT_PARTS.map((part) => (
+                              <option key={part.id} value={part.id}>
+                                {part.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Color swatches layout */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5 gap-2.5 mb-4">
-                  {PAINT_COLORS.map((color) => {
-                    const isSelected = partColors[selectedPart] === color.id;
-                    return (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => {
-                          setPartColors((prev) => ({ ...prev, [selectedPart]: color.id }));
-                          setResultImage(null);
-                          setErrorMsg(null);
-                        }}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-all ${
-                          isSelected
-                            ? 'border-clay bg-clay-soft shadow-sm scale-102'
-                            : 'border-line bg-paper hover:-translate-y-0.5 hover:border-line-strong'
-                        }`}
-                      >
-                        <span
-                          className="h-7 w-7 rounded-full border border-ink/10 shadow-inner"
-                          style={{ backgroundColor: color.hex }}
-                        />
-                        <div className="flex flex-col items-center min-h-[30px] justify-center">
-                          <span className="text-[9px] font-bold text-ink leading-tight">
-                            {color.label}
-                          </span>
-                          <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
-                            {color.jpma}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
                 {/* Presets (1-tap setup) */}
-                <div className="border-t border-line pt-4">
-                  <p className="text-[10px] font-bold text-ink-soft mb-2 uppercase tracking-wider">
+                <div className="border-t border-line mt-6 pt-5">
+                  <p className="text-[10px] font-bold text-ink-soft mb-2.5 uppercase tracking-wider">
                     人気の配色プリセット（1タップ適用）
                   </p>
                   <div className="grid grid-cols-3 gap-2">
@@ -722,7 +822,7 @@ export default function Studio() {
                         key={preset.id}
                         type="button"
                         onClick={() => applyPreset(preset)}
-                        className="rounded-lg border border-line bg-paper px-3 py-2 text-left hover:border-line-strong hover:bg-paper-raised transition-all"
+                        className="rounded-lg border border-line bg-paper px-3 py-2.5 text-left hover:border-line-strong hover:bg-paper-raised transition-all"
                       >
                         <span className="text-[10px] font-bold text-ink block">{preset.label}</span>
                         <span className="text-[8px] text-ink-faint mt-0.5 leading-tight block">

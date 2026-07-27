@@ -234,19 +234,20 @@ You are given the following input:
 ${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color or texture sample uploaded by the user.\n' : ''}
 
 REDESIGN TASK (House Exterior Paint Simulator):
-- Paint the house exterior parts with the following exact colors:
-  1. Main Walls: Paint using "${mainColor.label}" (refer to hex: ${mainColor.hex}, style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  2. Accent Walls: Paint using "${accentColor.label}" (refer to hex: ${accentColor.hex}, style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  3. Roof: Paint using "${roofColor.label}" (refer to hex: ${roofColor.hex}, style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  4. Doors, Window Sashes, Rain Gutters, and Trims: Paint using "${trimColor.label}" (refer to hex: ${trimColor.hex}, style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+- Paint the house exterior parts with the following exact, independent colors:
+  1. Main exterior walls: MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  2. Accent exterior walls: MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  3. Roof: MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  4. Doors, window sashes, rain gutters, fascia boards, and trims: MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
 
 LIGHTING & ATMOSPHERE:
 - Render the entire scene under the specified lighting condition: ${lightingText}. Adjust the highlights, shadows, sky appearance, and reflection values on painted walls accordingly.
 
 CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
-- Do NOT warp, distort, tilt, modify, add, or remove any architectural or background elements. Only change the paint colors and their light reflections on the walls, roof, and trims.
-- The output image must look 100% like a high-quality professional photograph of the same house, but painted with the specified colors. Keep details realistic and keep the background exactly identical to Image 1.`;
+- Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
+- Only change the paint colors and their light reflections of the specified parts (Main exterior walls, Roof, Accent walls, Doors/Trims). Keep all other elements exactly identical to Image 1.
+- The output image must look 100% like a high-quality professional photograph of the same house, but painted with the specified colors.`;
 
     parts.push({ text: instruction });
 
