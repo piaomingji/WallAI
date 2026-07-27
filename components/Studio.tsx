@@ -95,12 +95,30 @@ export default function Studio() {
     setErrorMsg(null);
   };
 
+  // Reset all paint colors, custom color, and result image
+  const resetPaintStates = () => {
+    setPartColors({
+      all_walls: '',
+      first_floor: '',
+      second_floor: '',
+      accent: '',
+      roof: '',
+      trim: '',
+    });
+    setCustomColor({
+      hex: '',
+      base64: null,
+    });
+    setResultImage(null);
+    setErrorMsg(null);
+    setSelectedPart('all_walls');
+  };
+
   // Preset house click handler
   const selectPresetHouse = (imageUrl: string, houseId: string) => {
     setUploadedImage(imageUrl);
     setSelectedHouseType(houseId);
-    setResultImage(null);
-    setErrorMsg(null);
+    resetPaintStates();
   };
 
   // Image preprocess downscale
@@ -139,8 +157,7 @@ export default function Studio() {
           ctx.drawImage(img, 0, 0, width, height);
           setUploadedImage(canvas.toDataURL('image/jpeg', 0.85));
           setSelectedHouseType(null); // custom file
-          setResultImage(null);
-          setErrorMsg(null);
+          resetPaintStates();
         }
       };
       img.src = e.target?.result as string;
@@ -350,9 +367,8 @@ export default function Studio() {
   const resetAll = () => {
     setUploadedImage(null);
     setSelectedHouseType(null);
-    setResultImage(null);
     setGenerationTime(null);
-    setErrorMsg(null);
+    resetPaintStates();
   };
 
   // Color lookup helper
