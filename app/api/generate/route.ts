@@ -240,18 +240,19 @@ export async function POST(req: NextRequest) {
     const firstFloorPrompt = firstFloorColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the 1st floor exterior walls. Keep it exactly identical to the original Image 1.'
       : `MUST paint using color "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}, Style: ${firstFloorColor.prompt}).
-      * CRITICAL ARCHITECTURAL SEGMENTATION FOR 1ST FLOOR:
+      * CRITICAL ARCHITECTURAL SEGMENTATION FOR 1ST FLOOR (Lower Level):
         - Paint ONLY the lower story walls from the ground up to the 1st-floor ceiling line / transition girth belt with "${firstFloorColor.label}".
-        - Do NOT paint the recessed 2nd-floor window walls or any elements on the 2nd level with this color.
+        - Do NOT paint the recessed 2nd-floor window walls or any elements on the 2nd level (such as the recessed main walls behind the balconies) with this 1st-floor color.
         - Ensure complete color coverage for all 1st floor wall sections, including walls behind carports/garages, under balconies, and shadowed areas, while preserving original textures, grid lines, and natural lighting shadows.${isBalconyUnspecified ? '\n        - (Balcony Integration): Balconies and parapets on the 1st-floor level (if any) should be painted with this 1st-floor color to unify the design.' : ''}
       * ${firstFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const secondFloorPrompt = secondFloorColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the 2nd floor exterior walls. Keep it exactly identical to the original Image 1.'
       : `MUST paint using color "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}, Style: ${secondFloorColor.prompt}).
-      * CRITICAL ARCHITECTURAL SEGMENTATION FOR 2ND FLOOR:
-        - Must paint the ENTIRE upper story wall surface (including all walls surrounding 2nd-floor windows, recessed/inner walls behind balconies, and balcony parapets) uniformly with "${secondFloorColor.label}".
-        - Do NOT misidentify the recessed 2nd-floor window walls as part of the 1st floor just because they are set back. The entire 2nd level altitude belongs to "${secondFloorColor.label}".
+      * CRITICAL ARCHITECTURAL SEGMENTATION FOR 2ND FLOOR (Upper Level):
+        - Must paint the ENTIRE upper story wall surface (including all walls surrounding 2nd-floor windows, recessed/inner main walls behind balconies, and balcony outer parapets/handrail walls) uniformly with "${secondFloorColor.label}".
+        - The 2nd floor walls consist of TWO depth layers: (1) the foremost balcony parapet walls, and (2) the recessed inner wall surface located BEHIND the balcony where the 2nd-floor windows are. BOTH layers must be painted with "${secondFloorColor.label}" uniformly.
+        - DO NOT misidentify the recessed 2nd-floor window walls as part of the 1st floor just because they are set back. The entire 2nd level altitude belongs to "${secondFloorColor.label}".
         - Ensure complete color coverage for all 2nd floor wall sections while preserving original textures, grid lines, and natural lighting shadows.${isBalconyUnspecified ? '\n        - (Balcony Integration): Since Balcony/Accent color is unspecified, paint all balcony parapets and handrail walls on the 2nd floor level with this same color ("${secondFloorColor.label}") to unify the design.' : ''}
       * ${secondFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
@@ -314,7 +315,7 @@ LIGHTING & ATMOSPHERE:
 CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - Strictly keep the original wall texture, tile grid lines, joints, grout lines, and surface bumpiness. Do NOT smooth or flatten the wall or roof surfaces.
 - The paint color division must align perfectly with the house's horizontal architectural lines, such as girth belts (胴差し幕板), fascia, trim lines, or horizontal joints. Follow the natural structural edges detected in Image 1 and do NOT allow colors to bleed or transition in the middle of a continuous flat surface like a balcony wall or siding panel.
-- Do NOT misidentify depth or recession as level transition; recessed wall faces behind balconies are strictly part of the 2nd floor and must match the 2nd floor color. Keep color zoning horizontal.
+- Do NOT misidentify depth, setback, or recession as a building story transition. The recessed main wall faces behind balconies are strictly part of the 2nd floor and must be painted with the 2nd-floor color. Keep color zoning aligned with horizontal floor altitudes, ignoring depth differences.
 - Preserve the exact surface roughness, depth map characteristics, bumpiness, and normal map details of the walls in Image 1.
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
