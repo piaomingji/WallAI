@@ -203,6 +203,14 @@ export async function POST(req: NextRequest) {
 
     // Get color specifications
     const getColorDetailsServer = (colorId: string) => {
+      if (!colorId) {
+        return {
+          id: 'none',
+          label: '指定なし（変更しない）',
+          hex: 'transparent',
+          prompt: 'do not paint or alter, keep original color',
+        };
+      }
       if (colorId === 'custom_sample' && customSampleColor) {
         return {
           id: 'custom_sample',
@@ -218,6 +226,22 @@ export async function POST(req: NextRequest) {
     const accentColor = getColorDetailsServer(partColors?.accent);
     const roofColor = getColorDetailsServer(partColors?.roof);
     const trimColor = getColorDetailsServer(partColors?.trim);
+
+    const mainColorPrompt = mainColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the Main Walls. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+
+    const accentColorPrompt = accentColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the Accent Walls. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+
+    const roofColorPrompt = roofColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the Roof. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+
+    const trimColorPrompt = trimColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the doors, window sashes, rain gutters, fascia boards, and trims. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     let lightingText = '';
     if (lighting === 'sunset') {
@@ -235,10 +259,10 @@ ${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color 
 
 REDESIGN TASK (House Exterior Paint Simulator):
 - Paint the house exterior parts with the following exact, independent colors:
-  1. Main exterior walls: MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  2. Accent exterior walls: MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  3. Roof: MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
-  4. Doors, window sashes, rain gutters, fascia boards, and trims: MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  1. Main exterior walls: ${mainColorPrompt}
+  2. Accent exterior walls: ${accentColorPrompt}
+  3. Roof: ${roofColorPrompt}
+  4. Doors, window sashes, rain gutters, fascia boards, and trims: ${trimColorPrompt}
 
 LIGHTING & ATMOSPHERE:
 - Render the entire scene under the specified lighting condition: ${lightingText}. Adjust the highlights, shadows, sky appearance, and reflection values on painted walls accordingly.
@@ -246,7 +270,7 @@ LIGHTING & ATMOSPHERE:
 CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
-- Only change the paint colors and their light reflections of the specified parts (Main exterior walls, Roof, Accent walls, Doors/Trims). Keep all other elements exactly identical to Image 1.
+- Only change the paint colors and their light reflections of the specified parts (Main exterior walls, Roof, Accent walls, Doors/Trims) that are requested to be painted. Keep all other elements exactly identical to Image 1.
 - The output image must look 100% like a high-quality professional photograph of the same house, but painted with the specified colors.`;
 
     parts.push({ text: instruction });

@@ -354,6 +354,15 @@ export default function Studio() {
   // Color lookup helper
   const getColorDetails = (partKey: string) => {
     const colorId = partColors[partKey];
+    if (!colorId) {
+      return {
+        id: 'none',
+        label: '指定なし（変更しない）',
+        hex: 'transparent',
+        jpma: '未指定',
+        prompt: 'do not alter, keep original paint color',
+      };
+    }
     if (colorId === 'custom_sample') {
       return {
         id: 'custom_sample',
@@ -628,8 +637,10 @@ export default function Studio() {
                           
                           <div className="flex items-center gap-2">
                             <span
-                              className="h-3.5 w-3.5 rounded-full border border-ink/10 shadow-inner"
-                              style={{ backgroundColor: currentColor.hex }}
+                              className={`h-3.5 w-3.5 rounded-full border shadow-inner ${
+                                currentColor.id === 'none' ? 'border-dashed border-ink-faint bg-transparent' : 'border-ink/10'
+                              }`}
+                              style={{ backgroundColor: currentColor.id === 'none' ? undefined : currentColor.hex }}
                             />
                             <span className="text-[10px] font-bold text-ink-soft">
                               {currentColor.label}
@@ -654,15 +665,43 @@ export default function Studio() {
                         {isPartOpen && (
                           <div className="p-4 border-t border-line bg-paper-raised/50 animate-fade-in">
                             <p className="text-[9px] font-bold text-ink-faint mb-2.5 uppercase tracking-wider">
-                              カラーを選択してください
+                              カラーを選択してください（同じ色をもう一度押すと選択解除）
                             </p>
                             <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-2 xl:grid-cols-5 gap-2">
-                              {/* Custom Sample Color Swatch (Show first if extracted) */}
+                              {/* 🚫 指定なし（元画像のまま）Option */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPartColors((prev) => ({ ...prev, [part.id]: '' }));
+                                  setResultImage(null);
+                                  setErrorMsg(null);
+                                }}
+                                className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-all ${
+                                  !partColors[part.id]
+                                    ? 'border-clay bg-clay-soft shadow-sm scale-102 font-bold'
+                                    : 'border-line bg-paper hover:border-line-strong'
+                                }`}
+                              >
+                                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-ink-faint bg-transparent text-[10px] text-ink-soft">
+                                  🚫
+                                </span>
+                                <div className="flex flex-col items-center min-h-[30px] justify-center">
+                                  <span className="text-[9px] font-bold text-ink leading-tight">
+                                    指定なし
+                                  </span>
+                                  <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
+                                    元画像のまま
+                                  </span>
+                                </div>
+                              </button>
+
+                              {/* Custom Sample Color Swatch (Show second if extracted) */}
                               {customColor.hex && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setPartColors((prev) => ({ ...prev, [part.id]: 'custom_sample' }));
+                                    const isSelected = partColors[part.id] === 'custom_sample';
+                                    setPartColors((prev) => ({ ...prev, [part.id]: isSelected ? '' : 'custom_sample' }));
                                     setResultImage(null);
                                     setErrorMsg(null);
                                   }}
@@ -695,13 +734,14 @@ export default function Studio() {
                                     key={color.id}
                                     type="button"
                                     onClick={() => {
-                                      setPartColors((prev) => ({ ...prev, [part.id]: color.id }));
+                                      const isSelected = partColors[part.id] === color.id;
+                                      setPartColors((prev) => ({ ...prev, [part.id]: isSelected ? '' : color.id }));
                                       setResultImage(null);
                                       setErrorMsg(null);
                                     }}
                                     className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition-all ${
                                       isColorSelected
-                                        ? 'border-clay bg-clay-soft shadow-sm scale-102'
+                                        ? 'border-clay bg-clay-soft shadow-sm scale-102 font-bold'
                                         : 'border-line bg-paper hover:-translate-y-0.5 hover:border-line-strong'
                                     }`}
                                   >
