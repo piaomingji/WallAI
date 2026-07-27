@@ -260,7 +260,10 @@ export async function POST(req: NextRequest) {
       twotonePrompt = `\n- Single unified color design: Paint both 1st and 2nd floors with the same color "${allWallsColor.label}" (Hex: ${allWallsColor.hex}) for a seamless, unified exterior look.`;
     } else if (firstFloorColor.id !== 'none' && secondFloorColor.id !== 'none') {
       if (firstFloorColor.id !== secondFloorColor.id) {
-        twotonePrompt = `\n- Two-tone exterior house design: Paint with "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}) on the 1st floor and "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}) on the 2nd floor. Cleanly paint and separate the color boundary at the horizontal transition line between the 1st and 2nd floors.`;
+        twotonePrompt = `\n- TWO-TONE EXTERIOR PAINTING (HORIZONTAL DIVISION):
+      * LOWER LEVEL (1st floor): Paint the entire lower section from the ground up to the 1st floor ceiling/dividing line with "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}).
+      * UPPER LEVEL (2nd floor): Paint the entire upper section from the 2nd floor base line up to the roof line (including the upper balcony exterior) with "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}).
+      * The boundary must strictly follow the natural horizontal architectural division line between the 1st and 2nd stories. Do NOT cut colors in the middle of a balcony wall or window.`;
       } else {
         twotonePrompt = `\n- Single unified color design: Paint both 1st and 2nd floors with the same color "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}) for a seamless, unified exterior look.`;
       }
@@ -298,6 +301,7 @@ LIGHTING & ATMOSPHERE:
 
 CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - Strictly keep the original wall texture, tile grid lines, joints, grout lines, and surface bumpiness. Do NOT smooth or flatten the wall or roof surfaces.
+- The paint color division must align perfectly with the house's horizontal architectural lines, such as girth belts (胴差し幕板), fascia, trim lines, or horizontal joints. Follow the natural structural edges detected in Image 1 and do NOT allow colors to bleed or transition in the middle of a continuous flat surface like a balcony wall or siding panel.
 - Preserve the exact surface roughness, depth map characteristics, bumpiness, and normal map details of the walls in Image 1.
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
