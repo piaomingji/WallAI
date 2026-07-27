@@ -23,8 +23,8 @@ const LOADING_STATUSES = [
 
 export default function Studio() {
   // Input states
-  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [selectedHouseType, setSelectedHouseType] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<string | null>('/demo-before.jpg');
+  const [selectedHouseType, setSelectedHouseType] = useState<string | null>('japanese');
 
   // Selected colors for each paint part
   const [partColors, setPartColors] = useState<{ [key: string]: string }>({
@@ -69,7 +69,7 @@ export default function Studio() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [generationTime, setGenerationTime] = useState<number | null>(null);
-  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>('/demo-after.jpg');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // プレビュー拡大鏡（Magnifier）ステート
@@ -77,6 +77,9 @@ export default function Studio() {
   const [[previewX, previewY], setPreviewXY] = useState([0, 0]);
   const [[previewWidth, previewHeight], setPreviewDimensions] = useState([0, 0]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  // シミュレーションID（ハイドレーションエラー対策）
+  const [simulationId, setSimulationId] = useState<string>('');
 
   const handlePreviewMouseMove = (e: React.MouseEvent) => {
     const rect = previewContainerRef.current?.getBoundingClientRect();
@@ -94,6 +97,9 @@ export default function Studio() {
 
   // Syncing changes on mount or storage trigger
   useEffect(() => {
+    // クライアントサイドでのみランダムIDを生成し、ハイドレーションエラーを防止
+    setSimulationId(`WA-${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
+
     const handleSync = () => {
       // Sync logic if needed
     };
@@ -431,7 +437,7 @@ export default function Studio() {
           </div>
           <div className="text-right text-xs text-gray-400">
             <p>生成日時: {new Date().toLocaleDateString('ja-JP')}</p>
-            <p>シミュレーションID: WA-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+            <p>シミュレーションID: {simulationId}</p>
           </div>
         </div>
 
@@ -1063,9 +1069,11 @@ export default function Studio() {
                       <h3 className="font-display mt-4 text-xl font-bold text-ink">
                         外壁塗装シミュレーション完了
                       </h3>
-                      <p className="mt-1 text-xs text-ink-faint">
-                        生成時間: {generationTime}秒
-                      </p>
+                      {generationTime && (
+                        <p className="mt-1 text-xs text-ink-faint">
+                          生成時間: {generationTime}秒
+                        </p>
+                      )}
                     </div>
 
                     <CompareSlider
