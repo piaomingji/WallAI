@@ -28,6 +28,7 @@ export default function Studio() {
 
   // Selected colors for each paint part
   const [partColors, setPartColors] = useState<{ [key: string]: string }>({
+    all_walls: 'ivory',
     first_floor: 'ivory',
     second_floor: 'ivory',
     accent: 'natural_beige',
@@ -36,7 +37,7 @@ export default function Studio() {
   });
 
   // Current active paint part being colored
-  const [selectedPart, setSelectedPart] = useState<string>('first_floor');
+  const [selectedPart, setSelectedPart] = useState<string>('all_walls');
 
   // Lighting environment condition
   const [lighting, setLighting] = useState<string>('daylight');
@@ -83,6 +84,7 @@ export default function Studio() {
   // Preset click handler (1-tap application)
   const applyPreset = (preset: PaintPreset) => {
     setPartColors({
+      all_walls: preset.colors.main,
       first_floor: preset.colors.main,
       second_floor: preset.colors.main,
       accent: preset.colors.accent,
@@ -355,7 +357,12 @@ export default function Studio() {
 
   // Color lookup helper
   const getColorDetails = (partKey: string) => {
-    const colorId = partColors[partKey];
+    let colorId = partColors[partKey];
+    // If getting color for first_floor or second_floor and all_walls is active, inherit all_walls color
+    if ((partKey === 'first_floor' || partKey === 'second_floor') && partColors.all_walls) {
+      colorId = partColors.all_walls;
+    }
+
     if (!colorId) {
       return {
         id: 'none',
@@ -632,7 +639,7 @@ export default function Studio() {
                         >
                           <div className="flex items-center gap-2.5">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay/90 text-[9px] font-bold text-paper">
-                              {part.id === 'main' ? 'M' : part.id === 'accent' ? 'A' : part.id === 'roof' ? 'R' : 'T'}
+                              {part.id === 'all_walls' ? 'W' : part.id === 'first_floor' ? '1' : part.id === 'second_floor' ? '2' : part.id === 'accent' ? 'A' : part.id === 'roof' ? 'R' : 'T'}
                             </span>
                             <span className="text-xs font-bold text-ink">{part.label}</span>
                           </div>
@@ -646,6 +653,9 @@ export default function Studio() {
                             />
                             <span className="text-[10px] font-bold text-ink-soft">
                               {currentColor.label}
+                              {(part.id === 'first_floor' || part.id === 'second_floor') && partColors.all_walls && (
+                                <span className="text-[9px] text-clay ml-1 font-semibold">(全体優先)</span>
+                              )}
                             </span>
                             <svg
                               width="12"
@@ -674,7 +684,16 @@ export default function Studio() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setPartColors((prev) => ({ ...prev, [part.id]: '' }));
+                                  setPartColors((prev) => {
+                                    const next = { ...prev, [part.id]: '' };
+                                    if (part.id === 'all_walls') {
+                                      next.first_floor = '';
+                                      next.second_floor = '';
+                                    } else if (part.id === 'first_floor' || part.id === 'second_floor') {
+                                      next.all_walls = '';
+                                    }
+                                    return next;
+                                  });
                                   setResultImage(null);
                                   setErrorMsg(null);
                                 }}
@@ -703,7 +722,17 @@ export default function Studio() {
                                   type="button"
                                   onClick={() => {
                                     const isSelected = partColors[part.id] === 'custom_sample';
-                                    setPartColors((prev) => ({ ...prev, [part.id]: isSelected ? '' : 'custom_sample' }));
+                                    const targetValue = isSelected ? '' : 'custom_sample';
+                                    setPartColors((prev) => {
+                                      const next = { ...prev, [part.id]: targetValue };
+                                      if (part.id === 'all_walls') {
+                                        next.first_floor = targetValue;
+                                        next.second_floor = targetValue;
+                                      } else if (part.id === 'first_floor' || part.id === 'second_floor') {
+                                        next.all_walls = '';
+                                      }
+                                      return next;
+                                    });
                                     setResultImage(null);
                                     setErrorMsg(null);
                                   }}
@@ -737,7 +766,17 @@ export default function Studio() {
                                     type="button"
                                     onClick={() => {
                                       const isSelected = partColors[part.id] === color.id;
-                                      setPartColors((prev) => ({ ...prev, [part.id]: isSelected ? '' : color.id }));
+                                      const targetValue = isSelected ? '' : color.id;
+                                      setPartColors((prev) => {
+                                        const next = { ...prev, [part.id]: targetValue };
+                                        if (part.id === 'all_walls') {
+                                          next.first_floor = targetValue;
+                                          next.second_floor = targetValue;
+                                        } else if (part.id === 'first_floor' || part.id === 'second_floor') {
+                                          next.all_walls = '';
+                                        }
+                                        return next;
+                                      });
                                       setResultImage(null);
                                       setErrorMsg(null);
                                     }}
@@ -835,7 +874,16 @@ export default function Studio() {
                             onChange={(e) => {
                               const newPart = e.target.value;
                               setSelectedPart(newPart);
-                              setPartColors((prev) => ({ ...prev, [newPart]: 'custom_sample' }));
+                              setPartColors((prev) => {
+                                const next = { ...prev, [newPart]: 'custom_sample' };
+                                if (newPart === 'all_walls') {
+                                  next.first_floor = 'custom_sample';
+                                  next.second_floor = 'custom_sample';
+                                } else if (newPart === 'first_floor' || newPart === 'second_floor') {
+                                  next.all_walls = '';
+                                }
+                                return next;
+                              });
                               setResultImage(null);
                               setErrorMsg(null);
                             }}

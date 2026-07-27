@@ -222,11 +222,18 @@ export async function POST(req: NextRequest) {
       return PAINT_COLORS.find((c) => c.id === colorId) || PAINT_COLORS[0];
     };
 
+    const allWallsColor = getColorDetailsServer(partColors?.all_walls);
     const firstFloorColor = getColorDetailsServer(partColors?.first_floor);
     const secondFloorColor = getColorDetailsServer(partColors?.second_floor);
     const accentColor = getColorDetailsServer(partColors?.accent);
     const roofColor = getColorDetailsServer(partColors?.roof);
     const trimColor = getColorDetailsServer(partColors?.trim);
+
+    const isAllWallsPainted = allWallsColor.id !== 'none';
+
+    const allWallsPrompt = isAllWallsPainted
+      ? `MUST paint using color "${allWallsColor.label}" (Hex: ${allWallsColor.hex}, Style: ${allWallsColor.prompt}). Apply "${allWallsColor.label}" to all exterior wall surfaces (both 1st and 2nd floors uniformly). Ensure even coverage across the entire house while maintaining original textures and window trims. Shaded and shadowed wall areas should also be covered uniformly. ${allWallsColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`
+      : '';
 
     const firstFloorPrompt = firstFloorColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the 1st floor exterior walls. Keep it exactly identical to the original Image 1.'
@@ -249,7 +256,9 @@ export async function POST(req: NextRequest) {
       : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}). Apply the paint color precisely as a thin overlay coat, maintaining all edge details and material texture without smoothing. ${trimColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     let twotonePrompt = '';
-    if (firstFloorColor.id !== 'none' && secondFloorColor.id !== 'none') {
+    if (isAllWallsPainted) {
+      twotonePrompt = `\n- Single unified color design: Paint both 1st and 2nd floors with the same color "${allWallsColor.label}" (Hex: ${allWallsColor.hex}) for a seamless, unified exterior look.`;
+    } else if (firstFloorColor.id !== 'none' && secondFloorColor.id !== 'none') {
       if (firstFloorColor.id !== secondFloorColor.id) {
         twotonePrompt = `\n- Two-tone exterior house design: Paint with "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}) on the 1st floor and "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}) on the 2nd floor. Cleanly paint and separate the color boundary at the horizontal transition line between the 1st and 2nd floors.`;
       } else {
@@ -277,8 +286,9 @@ ${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color 
 
 REDESIGN TASK (House Exterior Paint Simulator):
 - Paint the house exterior parts with the following exact, independent colors:${twotonePrompt}
-  1. 1st floor exterior walls: ${firstFloorPrompt}
-  2. 2nd floor exterior walls: ${secondFloorPrompt}
+${isAllWallsPainted
+  ? `  1. All exterior walls (unified): ${allWallsPrompt}`
+  : `  1. 1st floor exterior walls: ${firstFloorPrompt}\n  2. 2nd floor exterior walls: ${secondFloorPrompt}`}
   3. Accent sections and balconies: ${accentColorPrompt}
   4. Roof: ${roofColorPrompt}
   5. Doors, window sashes, rain gutters, fascia boards, and trims: ${trimColorPrompt}

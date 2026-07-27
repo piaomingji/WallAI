@@ -41,6 +41,7 @@ export const HOUSE_TYPES: HouseType[] = [
 ];
 
 export const PAINT_PARTS: PaintPart[] = [
+  { id: 'all_walls', label: '外壁全体（1階・2階一括）', prompt: 'all exterior wall surfaces (both 1st and 2nd floors uniformly)' },
   { id: 'first_floor', label: '1階の外壁', prompt: '1st floor exterior walls' },
   { id: 'second_floor', label: '2階の外壁', prompt: '2nd floor exterior walls' },
   { id: 'accent', label: 'アクセント部・ベランダ', prompt: 'balcony and accent sections' },
