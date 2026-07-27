@@ -264,7 +264,11 @@ export async function POST(req: NextRequest) {
 
     const roofColorPrompt = roofColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the Roof. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying roof tile lines, seams, and texture of Image 1 fully visible. Do NOT smooth or flatten the roof surface. ${roofColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}).
+        * CRITICAL ROOF SEGMENTATION RULES:
+          - Apply this roof color to ALL roof areas, including the main top roof AND the horizontal flat roof section (parapet roof or balcony deck floor) directly above the 1st floor terrace/deck.
+          - Ensure the terrace roof section is clearly painted as roof, distinct from the walls (such as the 2nd-floor walls) above it. Do NOT paint the terrace flat roof in the wall color.
+          - Apply the paint color as a semi-transparent overlay coat, keeping all the underlying roof tile lines, seams, and texture of Image 1 fully visible. Do NOT smooth or flatten the roof surface. ${roofColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const trimColorPrompt = trimColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the doors, window sashes, rain gutters, fascia boards, and trims. Keep it exactly identical to the original Image 1.'
@@ -327,6 +331,7 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - The paint color division must align perfectly with the house's horizontal architectural lines, such as girth belts (胴差し幕板), fascia, trim lines, or horizontal joints. Follow the natural structural edges detected in Image 1 and do NOT allow colors to bleed or transition in the middle of a continuous flat surface like a balcony wall or siding panel.
 - Do NOT misidentify depth, setback, or recession as a building story transition. The recessed main wall faces behind balconies are strictly part of the 2nd floor and must be painted with the 2nd-floor color. Keep color zoning aligned with horizontal floor altitudes, ignoring depth differences.
 - Obstruction and Shadow Handling: Shaded or recessed wall sections behind objects like cars, carport roofs, garage doors, pillars, and trees are strictly part of the house's exterior walls. Do NOT leave them unpainted. Apply the specified wall colors behind these obstructions uniformly, blending the colors naturally with lighting shadows and ambient illumination.
+- Roof and Wall Separation: Do NOT paint horizontal flat roof surfaces (such as parapets, terrace roofs, or overhanging balcony deck floors) in the wall color. These horizontal planes belong strictly to the Roof category and must be painted with the Roof color.
 - Preserve the exact surface roughness, depth map characteristics, bumpiness, and normal map details of the walls in Image 1.
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
