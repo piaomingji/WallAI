@@ -286,6 +286,11 @@ export async function POST(req: NextRequest) {
       twotonePrompt = `\n- Paint only the 2nd floor exterior walls with "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}). The 1st floor exterior walls must remain entirely unpainted, maintaining its original color and texture from Image 1.`;
     }
 
+    const isCustomTwoTone = !isAllWallsPainted &&
+      firstFloorColor.id !== 'none' &&
+      secondFloorColor.id !== 'none' &&
+      firstFloorColor.id !== secondFloorColor.id;
+
     let lightingText = '';
     if (lighting === 'sunset') {
       lightingText = 'Warm golden hour sunset glow, warm lighting, long soft shadows';
@@ -301,10 +306,13 @@ You are given the following input:
 ${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color or texture sample uploaded by the user.\n' : ''}
 
 REDESIGN TASK (House Exterior Paint Simulator):
-- Paint the house exterior parts with the following exact, independent colors:${twotonePrompt}
+${isCustomTwoTone ? `[Two-tone house exterior painting instructions]
+- UPPER COLOR: Apply "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}, Style: ${secondFloorColor.prompt}) to the ENTIRE upper section of the house. This includes ALL upper walls, balcony walls, and the recessed walls behind the balcony. ${secondFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+- LOWER COLOR: Apply "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}, Style: ${firstFloorColor.prompt}) ONLY to the lower section of the house below the 1st-floor ceiling line / carport top level. ${firstFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+- BOUNDARY: The horizontal color boundary line must be placed strictly BELOW the balcony base, matching the natural 1st-floor wall height. Do NOT split colors across the middle wall section.` : `- Paint the house exterior parts with the following exact, independent colors:${twotonePrompt}
 ${isAllWallsPainted
   ? `  1. All exterior walls (unified): ${allWallsPrompt}`
-  : `  1. 1st floor exterior walls: ${firstFloorPrompt}\n  2. 2nd floor exterior walls: ${secondFloorPrompt}`}
+  : `  1. 1st floor exterior walls: ${firstFloorPrompt}\n  2. 2nd floor exterior walls: ${secondFloorPrompt}`}`}
   3. Accent sections and balconies: ${accentColorPrompt}
   4. Roof: ${roofColorPrompt}
   5. Doors, window sashes, rain gutters, fascia boards, and trims: ${trimColorPrompt}
