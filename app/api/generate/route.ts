@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { HOUSE_TYPES, PAINT_COLORS } from '@/lib/constants';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -158,6 +160,30 @@ export async function POST(req: NextRequest) {
       if (match) {
         mimeType = match[1];
         base64Image = match[2];
+      }
+    } else if (image.startsWith('/')) {
+      try {
+        const filePath = path.join(process.cwd(), 'public', image);
+        if (fs.existsSync(filePath)) {
+          const fileBuffer = fs.readFileSync(filePath);
+          base64Image = fileBuffer.toString('base64');
+          if (image.endsWith('.png')) {
+            mimeType = 'image/png';
+          } else if (image.endsWith('.webp')) {
+            mimeType = 'image/webp';
+          }
+        } else {
+          return NextResponse.json(
+            { error: `サンプル画像ファイルが見つかりません: ${image}` },
+            { status: 400 }
+          );
+        }
+      } catch (e) {
+        console.error('Error reading local sample image:', e);
+        return NextResponse.json(
+          { error: 'サンプル画像の読み込み中にエラーが発生しました。' },
+          { status: 500 }
+        );
       }
     }
 
