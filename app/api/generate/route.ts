@@ -229,19 +229,19 @@ export async function POST(req: NextRequest) {
 
     const mainColorPrompt = mainColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the Main Walls. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying tile details, grid lines, grout joints, cracks, and surface texture of Image 1 fully visible. Do NOT make the walls look flat or smooth.${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const accentColorPrompt = accentColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the Accent Walls. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying tile details, grid lines, grout joints, cracks, and surface texture of Image 1 fully visible. Do NOT make the walls look flat or smooth.${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const roofColorPrompt = roofColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the Roof. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying roof tile lines, seams, and texture of Image 1 fully visible. Do NOT smooth or flatten the roof surface.${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const trimColorPrompt = trimColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the doors, window sashes, rain gutters, fascia boards, and trims. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}). Apply the paint color precisely as a thin overlay coat, maintaining all edge details and material texture without smoothing.${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     let lightingText = '';
     if (lighting === 'sunset') {
@@ -268,6 +268,8 @@ LIGHTING & ATMOSPHERE:
 - Render the entire scene under the specified lighting condition: ${lightingText}. Adjust the highlights, shadows, sky appearance, and reflection values on painted walls accordingly.
 
 CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
+- Strictly keep the original wall texture, tile grid lines, joints, grout lines, and surface bumpiness. Do NOT smooth or flatten the wall or roof surfaces.
+- Preserve the exact surface roughness, depth map characteristics, bumpiness, and normal map details of the walls in Image 1.
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
 - Only change the paint colors and their light reflections of the specified parts (Main exterior walls, Roof, Accent walls, Doors/Trims) that are requested to be painted. Keep all other elements exactly identical to Image 1.
