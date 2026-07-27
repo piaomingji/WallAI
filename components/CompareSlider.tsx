@@ -8,16 +8,14 @@ type CompareSliderProps = {
   afterSrc: string;
   beforeAlt: string;
   afterAlt: string;
-  /** LCP 대상(히어로 쇼케이스)일 때만 true */
+  /** LCP 対象(히어로 쇼케이스)일 때만 true */
   priority?: boolean;
   sizes?: string;
   className?: string;
 };
 
 /**
- * 비포/애프터 비교 슬라이더.
- * After 레이어를 clip-path로 잘라내는 방식이라 리사이즈에도 이미지가 어긋나지 않고,
- * 포인터 캡처 + 키보드(방향키) 조작을 모두 지원한다.
+ * ビフォー/アフター比較スライダー（拡大鏡機能付き）
  */
 export default function CompareSlider({
   beforeSrc,
@@ -32,6 +30,12 @@ export default function CompareSlider({
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
+  // 拡大鏡（Magnifier）ステート
+  const [showMagnifier, setShowMagnifier] = useState(false);
+  const [[x, y], setXY] = useState([0, 0]);
+  const [[imgWidth, imgHeight], setImgSize] = useState([0, 0]);
+  const [isHoveringLeft, setIsHoveringLeft] = useState(false);
+
   const moveTo = useCallback((clientX: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -43,6 +47,34 @@ export default function CompareSlider({
     draggingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     moveTo(e.clientX);
+    setShowMagnifier(false); // ドラッグ中は非表示
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (draggingRef.current) {
+      moveTo(e.clientX);
+      setShowMagnifier(false);
+      return;
+    }
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const xCoord = e.clientX - rect.left;
+    const yCoord = e.clientY - rect.top;
+
+    // 画像の範囲内にある場合のみ拡大鏡を表示
+    if (xCoord >= 0 && xCoord <= rect.width && yCoord >= 0 && yCoord <= rect.height) {
+      setXY([xCoord, yCoord]);
+      setImgSize([rect.width, rect.height]);
+      
+      // スライダーの境界線より左側にいるかどうかを判定
+      const hoverRatio = (xCoord / rect.width) * 100;
+      setIsHoveringLeft(hoverRatio < pos);
+      setShowMagnifier(true);
+    } else {
+      setShowMagnifier(false);
+    }
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -61,9 +93,11 @@ export default function CompareSlider({
       ref={containerRef}
       className={`group relative w-full aspect-[4/3] overflow-hidden rounded-2xl border border-line bg-sand select-none touch-none cursor-ew-resize shadow-deep ${className}`}
       onPointerDown={onPointerDown}
-      onPointerMove={(e) => draggingRef.current && moveTo(e.clientX)}
+      onPointerMove={onPointerMove}
       onPointerUp={() => (draggingRef.current = false)}
       onPointerCancel={() => (draggingRef.current = false)}
+      onMouseEnter={() => setShowMagnifier(true)}
+      onMouseLeave={() => setShowMagnifier(false)}
     >
       {/* Before */}
       <Image
@@ -98,10 +132,28 @@ export default function CompareSlider({
         </span>
       </div>
 
-      {/* 핸들 */}
+      {/* 🔍 拡大鏡ルーペ（PCホバー環境専用） */}
+      {showMagnifier && !draggingRef.current && (
+        <div
+          className="absolute pointer-events-none rounded-full border-2 border-paper shadow-lg bg-paper hidden lg:block"
+          style={{
+            width: '140px',
+            height: '140px',
+            top: `${y - 70}px`,
+            left: `${x - 70}px`,
+            zIndex: 30,
+            backgroundImage: `url('${isHoveringLeft ? afterSrc : beforeSrc}')`,
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: `${imgWidth * 2.5}px ${imgHeight * 2.5}px`,
+            backgroundPosition: `${-x * 2.5 + 70}px ${-y * 2.5 + 70}px`,
+          }}
+        />
+      )}
+
+      {/* ハンドる */}
       <div
         className="absolute inset-y-0 w-0.5 bg-paper shadow-[0_0_12px_rgba(33,27,19,0.4)]"
-        style={{ left: `${pos}%` }}
+        style={{ left: `${pos}%`, zIndex: 10 }}
       >
         <button
           type="button"

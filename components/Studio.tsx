@@ -72,6 +72,26 @@ export default function Studio() {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // プレビュー拡大鏡（Magnifier）ステート
+  const [showPreviewMagnifier, setShowPreviewMagnifier] = useState(false);
+  const [[previewX, previewY], setPreviewXY] = useState([0, 0]);
+  const [[previewWidth, previewHeight], setPreviewDimensions] = useState([0, 0]);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  const handlePreviewMouseMove = (e: React.MouseEvent) => {
+    const rect = previewContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const xCoord = e.clientX - rect.left;
+    const yCoord = e.clientY - rect.top;
+    if (xCoord >= 0 && xCoord <= rect.width && yCoord >= 0 && yCoord <= rect.height) {
+      setPreviewXY([xCoord, yCoord]);
+      setPreviewDimensions([rect.width, rect.height]);
+      setShowPreviewMagnifier(true);
+    } else {
+      setShowPreviewMagnifier(false);
+    }
+  };
+
   // Syncing changes on mount or storage trigger
   useEffect(() => {
     const handleSync = () => {
@@ -1107,13 +1127,38 @@ export default function Studio() {
                 ) : uploadedImage ? (
                   /* ── UPLOADED IMAGE LOADED, AWAITING RUN SCREEN ── */
                   <div className="w-full flex flex-col items-center justify-center text-center gap-4 py-8 animate-fade-in">
-                    <div className="relative aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl border border-line shadow-sm">
+                    <div
+                      ref={previewContainerRef}
+                      onMouseMove={handlePreviewMouseMove}
+                      onMouseEnter={() => setShowPreviewMagnifier(true)}
+                      onMouseLeave={() => setShowPreviewMagnifier(false)}
+                      className="relative aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl border border-line shadow-sm cursor-zoom-in select-none"
+                    >
                       <Image
                         src={uploadedImage}
                         alt="元の住宅写真"
                         fill
                         className="object-cover"
+                        draggable={false}
                       />
+
+                      {/* 🔍 拡大ルーペ（PCホバー環境専用） */}
+                      {showPreviewMagnifier && (
+                        <div
+                          className="absolute pointer-events-none rounded-full border-2 border-paper shadow-lg bg-paper hidden lg:block"
+                          style={{
+                            width: '140px',
+                            height: '140px',
+                            top: `${previewY - 70}px`,
+                            left: `${previewX - 70}px`,
+                            zIndex: 30,
+                            backgroundImage: `url('${uploadedImage}')`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: `${previewWidth * 2.5}px ${previewHeight * 2.5}px`,
+                            backgroundPosition: `${-previewX * 2.5 + 70}px ${-previewY * 2.5 + 70}px`,
+                          }}
+                        />
+                      )}
                     </div>
                     <div className="max-w-xs mt-2">
                       <h4 className="text-xs font-bold text-ink">住宅写真セット完了</h4>
