@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       userEmail,
       isPremiumUser,
       userPlan,
+      customSampleColor,
     } = await req.json();
 
     if (!image || typeof image !== 'string') {
@@ -191,11 +192,32 @@ export async function POST(req: NextRequest) {
     const parts: any[] = [];
     parts.push({ inlineData: { mimeType, data: base64Image } }); // Image 1 is always the main house photo
 
+    if (customSampleColor && customSampleColor.base64) {
+      parts.push({
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: customSampleColor.base64,
+        },
+      }); // Image 2 is the custom color/texture reference sample
+    }
+
     // Get color specifications
-    const mainColor = PAINT_COLORS.find((c) => c.id === partColors?.main) || PAINT_COLORS[0];
-    const accentColor = PAINT_COLORS.find((c) => c.id === partColors?.accent) || PAINT_COLORS[1];
-    const roofColor = PAINT_COLORS.find((c) => c.id === partColors?.roof) || PAINT_COLORS[5];
-    const trimColor = PAINT_COLORS.find((c) => c.id === partColors?.trim) || PAINT_COLORS[9];
+    const getColorDetailsServer = (colorId: string) => {
+      if (colorId === 'custom_sample' && customSampleColor) {
+        return {
+          id: 'custom_sample',
+          label: 'カスタム抽出色',
+          hex: customSampleColor.hex,
+          prompt: `custom paint color matching hex code ${customSampleColor.hex} and texture referenced from Image 2`,
+        };
+      }
+      return PAINT_COLORS.find((c) => c.id === colorId) || PAINT_COLORS[0];
+    };
+
+    const mainColor = getColorDetailsServer(partColors?.main);
+    const accentColor = getColorDetailsServer(partColors?.accent);
+    const roofColor = getColorDetailsServer(partColors?.roof);
+    const trimColor = getColorDetailsServer(partColors?.trim);
 
     let lightingText = '';
     if (lighting === 'sunset') {
@@ -206,24 +228,25 @@ export async function POST(req: NextRequest) {
       lightingText = 'Bright sunny daylight at noon, clear blue sky, natural solar shadows';
     }
 
-    const instruction = `You are an expert AI house painting visualization tool.
-You are given a photo of a house:
+    const instruction = `You are a highly precise, professional AI house painting visualization tool.
+You are given the following input:
 - Image 1: The original photo of the house exterior before painting. This is the structural template.
+${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color or texture sample uploaded by the user.\n' : ''}
 
 REDESIGN TASK (House Exterior Paint Simulator):
 - Paint the house exterior parts with the following exact colors:
-  1. Main Walls: Paint using "${mainColor.label}" (refer to hex: ${mainColor.hex}, style: ${mainColor.prompt}).
-  2. Accent Walls: Paint using "${accentColor.label}" (refer to hex: ${accentColor.hex}, style: ${accentColor.prompt}).
-  3. Roof: Paint using "${roofColor.label}" (refer to hex: ${roofColor.hex}, style: ${roofColor.prompt}).
-  4. Doors, Window Sashes, Rain Gutters, and Trims: Paint using "${trimColor.label}" (refer to hex: ${trimColor.hex}, style: ${trimColor.prompt}).
+  1. Main Walls: Paint using "${mainColor.label}" (refer to hex: ${mainColor.hex}, style: ${mainColor.prompt}).${mainColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  2. Accent Walls: Paint using "${accentColor.label}" (refer to hex: ${accentColor.hex}, style: ${accentColor.prompt}).${accentColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  3. Roof: Paint using "${roofColor.label}" (refer to hex: ${roofColor.hex}, style: ${roofColor.prompt}).${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
+  4. Doors, Window Sashes, Rain Gutters, and Trims: Paint using "${trimColor.label}" (refer to hex: ${trimColor.hex}, style: ${trimColor.prompt}).${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}
 
 LIGHTING & ATMOSPHERE:
 - Render the entire scene under the specified lighting condition: ${lightingText}. Adjust the highlights, shadows, sky appearance, and reflection values on painted walls accordingly.
 
-CRITICAL GEOMETRY CONSTRAINT (HIGHEST PRIORITY):
-- You must STRICTLY lock the original building geometry, structures, wireframe boundaries, outlines, perspective, window frames, doors, landscape (trees, roads, ground), and neighbor buildings 100% perfectly.
-- Do not warp, tilt, distort, add, remove, or modify any architectural elements (such as windows, doors, roof geometry, columns, or chimneys). Only change the paint colors and light reflection of the specified parts.
-- The output image must look like a high-quality professional architectural photo. Keep it extremely realistic with natural shadows, reflections, and paint texture.`;
+CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
+- Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
+- Do NOT warp, distort, tilt, modify, add, or remove any architectural or background elements. Only change the paint colors and their light reflections on the walls, roof, and trims.
+- The output image must look 100% like a high-quality professional photograph of the same house, but painted with the specified colors. Keep details realistic and keep the background exactly identical to Image 1.`;
 
     parts.push({ text: instruction });
 
@@ -236,6 +259,9 @@ CRITICAL GEOMETRY CONSTRAINT (HIGHEST PRIORITY):
           parts,
         },
       ],
+      config: {
+        temperature: 0.1,
+      },
     });
 
     const candidate = res.candidates?.[0];

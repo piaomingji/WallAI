@@ -43,6 +43,13 @@ export default function Studio() {
   // Drag and drop status
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const colorSampleInputRef = useRef<HTMLInputElement>(null);
+
+  // Custom color sample state
+  const [customColor, setCustomColor] = useState<{ hex: string; base64: string | null }>({
+    hex: '',
+    base64: null,
+  });
 
   // Local storage properties for credits & plans
   const [freeCountRaw, setFreeCountRaw] = useLocalStorage(
@@ -137,6 +144,74 @@ export default function Studio() {
     reader.readAsDataURL(file);
   };
 
+  // Color sample image preprocess and average color extraction
+  const handleColorSampleFile = (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('画像ファイルのみアップロードできます。');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('色サンプルファイルは5MBを超過できません。');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          canvas.width = 50;
+          canvas.height = 50;
+          ctx.drawImage(img, 0, 0, 50, 50);
+          const imgData = ctx.getImageData(0, 0, 50, 50).data;
+          
+          let r = 0, g = 0, b = 0;
+          const count = imgData.length / 4;
+          for (let i = 0; i < imgData.length; i += 4) {
+            r += imgData[i];
+            g += imgData[i+1];
+            b += imgData[i+2];
+          }
+          
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+          
+          const rgbToHex = (red: number, green: number, blue: number) => {
+            return '#' + [red, green, blue].map(x => {
+              const hexStr = x.toString(16);
+              return hexStr.length === 1 ? '0' + hexStr : hexStr;
+            }).join('');
+          };
+          
+          const hex = rgbToHex(r, g, b);
+          
+          // Generate a small base64 representation for API transmission (e.g. 100x100 jpeg)
+          const miniCanvas = document.createElement('canvas');
+          miniCanvas.width = 100;
+          miniCanvas.height = 100;
+          const miniCtx = miniCanvas.getContext('2d');
+          if (miniCtx) {
+            miniCtx.drawImage(img, 0, 0, 100, 100);
+            const sampleBase64 = miniCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            
+            setCustomColor({ hex, base64: sampleBase64 });
+            
+            // Assign custom color to currently selected part
+            setPartColors((prev) => ({ ...prev, [selectedPart]: 'custom_sample' }));
+            setResultImage(null);
+            setErrorMsg(null);
+          }
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleGenerate = async () => {
     if (!uploadedImage) {
       setErrorMsg('シミュレーションの元となる住宅写真をアップロードまたは選択してください。');
@@ -160,6 +235,7 @@ export default function Studio() {
     const startTime = Date.now();
 
     const isPremiumUser = userPlan === 'pro' || (userPlan === 'quota' && freeCount > 0);
+    const hasCustomSample = Object.values(partColors).includes('custom_sample');
 
     try {
       const res = await fetch('/api/generate', {
@@ -177,6 +253,10 @@ export default function Studio() {
           isPremiumUser,
           userPlan,
           quotaRemaining: freeCount,
+          customSampleColor: hasCustomSample && customColor.hex ? {
+            hex: customColor.hex,
+            base64: customColor.base64,
+          } : null,
         }),
       });
 
@@ -274,6 +354,15 @@ export default function Studio() {
   // Color lookup helper
   const getColorDetails = (partKey: string) => {
     const colorId = partColors[partKey];
+    if (colorId === 'custom_sample') {
+      return {
+        id: 'custom_sample',
+        label: 'カスタム抽出色',
+        hex: customColor.hex || '#CCCCCC',
+        jpma: 'カスタム',
+        prompt: `custom color matching hex code ${customColor.hex || '#CCCCCC'} and reference sample`,
+      };
+    }
     return PAINT_COLORS.find((c) => c.id === colorId) || PAINT_COLORS[0];
   };
 
@@ -321,8 +410,8 @@ export default function Studio() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-100/50 text-gray-600 font-semibold">
                 <th className="px-5 py-3">塗装部位</th>
-                <th className="px-5 py-3">選定色（日本塗料工業会標準色 準拠）</th>
-                <th className="px-5 py-3">日塗工カラーコード</th>
+                <th className="px-5 py-3">選定色（標準またはカスタムカラー）</th>
+                <th className="px-5 py-3">カラーコード</th>
                 <th className="px-5 py-3">色サンプル</th>
               </tr>
             </thead>
@@ -530,6 +619,60 @@ export default function Studio() {
                       {part.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Custom Color/Texture Sample Upload */}
+                <div className="mb-4 rounded-xl border border-line bg-paper p-3">
+                  <p className="text-[10px] font-bold text-ink-soft mb-2 uppercase tracking-wider">
+                    希望色サンプルのアップロード（自動抽出）
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => colorSampleInputRef.current?.click()}
+                      className="flex-1 min-w-[120px] cursor-pointer rounded-lg border border-dashed border-line-strong hover:border-ink-faint bg-paper-raised py-2.5 px-3 text-center text-[10px] font-bold text-ink transition-colors"
+                    >
+                      色・質感サンプル画像をアップロード
+                    </button>
+                    <input
+                      ref={colorSampleInputRef}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleColorSampleFile(e.target.files[0]);
+                        e.target.value = '';
+                      }}
+                    />
+                    {customColor.hex && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPartColors((prev) => ({ ...prev, [selectedPart]: 'custom_sample' }));
+                          setResultImage(null);
+                          setErrorMsg(null);
+                        }}
+                        className={`flex items-center gap-2 rounded-xl border p-2 text-center transition-all ${
+                          partColors[selectedPart] === 'custom_sample'
+                            ? 'border-clay bg-clay-soft shadow-sm scale-102'
+                            : 'border-line bg-paper hover:border-line-strong'
+                        }`}
+                      >
+                        <span
+                          className="h-6 w-6 rounded-full border border-ink/10 shadow-inner"
+                          style={{ backgroundColor: customColor.hex }}
+                        />
+                        <div className="flex flex-col items-start text-left">
+                          <span className="text-[9px] font-bold text-ink leading-tight">
+                            抽出カスタム色
+                          </span>
+                          <span className="text-[8px] font-semibold text-ink-faint leading-none mt-0.5">
+                            {customColor.hex}
+                          </span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Color swatches layout */}
