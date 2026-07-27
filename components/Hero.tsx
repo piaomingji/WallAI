@@ -60,10 +60,10 @@ export default function Hero() {
         {/* ショーケース スライダー */}
         <Reveal delay={150} className="mt-16 w-full max-w-4xl">
           <CompareSlider
-            beforeSrc="/japanese_house.png"
+            beforeSrc="/japanese_house_v2.png"
             afterSrc="/japanese_house_painted.png"
-            beforeAlt="塗装前（元の和風住宅写真）"
-            afterAlt="塗装完成イメージ（アイボリー×ベージュ）"
+            beforeAlt="塗装前（元の標準的な日本の住宅写真）"
+            afterAlt="塗装完成イメージ"
             priority
           />
           <p className="mt-4 text-xs text-ink-faint">

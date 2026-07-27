@@ -34,7 +34,7 @@ export type PaintPreset = {
 };
 
 export const HOUSE_TYPES: HouseType[] = [
-  { id: 'japanese', label: '標準的な日本の住宅', image: '/japanese_house.png', prompt: 'standard Japanese suburban two-story house exterior with siding walls' },
+  { id: 'japanese', label: '標準的な日本の住宅', image: '/japanese_house_v2.png', prompt: 'standard Japanese suburban two-story house exterior with siding walls' },
   { id: 'western', label: '洋風住宅', image: '/western_house.png', prompt: 'classic Western suburban house exterior' },
   { id: 'modern', label: 'モダンスタイル', image: '/modern_house.png', prompt: 'modern minimalist luxury house exterior' },
   { id: 'apartment', label: 'アパート', image: '/apartment_house.png', prompt: 'low-rise residential apartment building exterior' },
