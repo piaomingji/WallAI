@@ -41,10 +41,11 @@ export const HOUSE_TYPES: HouseType[] = [
 ];
 
 export const PAINT_PARTS: PaintPart[] = [
-  { id: 'main', label: '外壁（メイン）', prompt: 'main exterior walls' },
-  { id: 'accent', label: '外壁（アクセント）', prompt: 'accent walls' },
+  { id: 'first_floor', label: '1階の外壁', prompt: '1st floor exterior walls' },
+  { id: 'second_floor', label: '2階の外壁', prompt: '2nd floor exterior walls' },
+  { id: 'accent', label: 'アクセント部・ベランダ', prompt: 'balcony and accent sections' },
   { id: 'roof', label: '屋根', prompt: 'roof' },
-  { id: 'trim', label: 'ドア・サッシ・雨樋・破風', prompt: 'front door, window frames, sashes, rain gutters, fascia boards, and trim' },
+  { id: 'trim', label: 'ドア・サッシ・雨樋・破風', prompt: 'doors, window frames, sashes, rain gutters, fascia boards, and trim' },
 ];
 
 export const PAINT_COLORS: PaintColor[] = [

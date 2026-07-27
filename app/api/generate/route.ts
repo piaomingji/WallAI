@@ -222,26 +222,44 @@ export async function POST(req: NextRequest) {
       return PAINT_COLORS.find((c) => c.id === colorId) || PAINT_COLORS[0];
     };
 
-    const mainColor = getColorDetailsServer(partColors?.main);
+    const firstFloorColor = getColorDetailsServer(partColors?.first_floor);
+    const secondFloorColor = getColorDetailsServer(partColors?.second_floor);
     const accentColor = getColorDetailsServer(partColors?.accent);
     const roofColor = getColorDetailsServer(partColors?.roof);
     const trimColor = getColorDetailsServer(partColors?.trim);
 
-    const mainColorPrompt = mainColor.id === 'none'
-      ? 'Do NOT paint or alter the color/texture of the Main Walls. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${mainColor.label}" (Hex: ${mainColor.hex}, Style: ${mainColor.prompt}). Apply "${mainColor.label}" to ALL exterior wall surfaces of the house without exception, including the 1st floor, 2nd floor, walls behind the carport/garage, and shaded/shadowed wall areas. Ensure complete color coverage for all wall sections while preserving original textures, grid lines, and natural lighting shadows. Do NOT make the walls look flat or smooth, and do not leave any original wall color unpainted. ${mainColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+    const firstFloorPrompt = firstFloorColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the 1st floor exterior walls. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}, Style: ${firstFloorColor.prompt}). Apply "${firstFloorColor.label}" to the entire 1st floor exterior walls including areas behind carports/garages, under balconies, and shadowed areas. Ensure complete color coverage for all 1st floor wall sections while preserving original textures, grid lines, and natural lighting shadows. Do NOT make the walls look flat or smooth, and do not leave any original 1st floor wall color unpainted. ${firstFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+
+    const secondFloorPrompt = secondFloorColor.id === 'none'
+      ? 'Do NOT paint or alter the color/texture of the 2nd floor exterior walls. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}, Style: ${secondFloorColor.prompt}). Apply "${secondFloorColor.label}" to the entire 2nd floor exterior walls. Ensure complete color coverage for all 2nd floor wall sections while preserving original textures, grid lines, and natural lighting shadows. Do NOT make the walls look flat or smooth, and do not leave any original 2nd floor wall color unpainted. ${secondFloorColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const accentColorPrompt = accentColor.id === 'none'
-      ? 'Do NOT paint or alter the color/texture of the Accent Walls. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}). Apply "${accentColor.label}" to ALL designated accent exterior wall surfaces of the house without exception, including the 1st floor, 2nd floor, walls behind the carport/garage, and shaded/shadowed accent wall areas. Ensure complete color coverage for all accent wall sections while preserving original textures, grid lines, and natural lighting shadows. Do NOT make the walls look flat or smooth, and do not leave any original accent wall color unpainted. ${accentColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      ? 'Do NOT paint or alter the color/texture of the accent sections and balconies. Keep it exactly identical to the original Image 1.'
+      : `MUST paint using color "${accentColor.label}" (Hex: ${accentColor.hex}, Style: ${accentColor.prompt}). Apply "${accentColor.label}" to ALL designated accent exterior wall surfaces, columns, and balconies. Ensure complete color coverage for all accent sections while preserving original textures, grid lines, and natural lighting shadows. Do NOT make the walls look flat or smooth. ${accentColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const roofColorPrompt = roofColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the Roof. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying roof tile lines, seams, and texture of Image 1 fully visible. Do NOT smooth or flatten the roof surface.${roofColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${roofColor.label}" (Hex: ${roofColor.hex}, Style: ${roofColor.prompt}). Apply the paint color as a semi-transparent overlay coat, keeping all the underlying roof tile lines, seams, and texture of Image 1 fully visible. Do NOT smooth or flatten the roof surface. ${roofColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
 
     const trimColorPrompt = trimColor.id === 'none'
       ? 'Do NOT paint or alter the color/texture of the doors, window sashes, rain gutters, fascia boards, and trims. Keep it exactly identical to the original Image 1.'
-      : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}). Apply the paint color precisely as a thin overlay coat, maintaining all edge details and material texture without smoothing.${trimColor.id === 'custom_sample' ? ' Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+      : `MUST paint using color "${trimColor.label}" (Hex: ${trimColor.hex}, Style: ${trimColor.prompt}). Apply the paint color precisely as a thin overlay coat, maintaining all edge details and material texture without smoothing. ${trimColor.id === 'custom_sample' ? 'Extrapolate this paint color and texture directly from the reference sample shown in Image 2.' : ''}`;
+
+    let twotonePrompt = '';
+    if (firstFloorColor.id !== 'none' && secondFloorColor.id !== 'none') {
+      if (firstFloorColor.id !== secondFloorColor.id) {
+        twotonePrompt = `\n- Two-tone exterior house design: Paint with "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}) on the 1st floor and "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}) on the 2nd floor. Cleanly paint and separate the color boundary at the horizontal transition line between the 1st and 2nd floors.`;
+      } else {
+        twotonePrompt = `\n- Single unified color design: Paint both 1st and 2nd floors with the same color "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}) for a seamless, unified exterior look.`;
+      }
+    } else if (firstFloorColor.id !== 'none') {
+      twotonePrompt = `\n- Paint only the 1st floor exterior walls with "${firstFloorColor.label}" (Hex: ${firstFloorColor.hex}). The 2nd floor exterior walls must remain entirely unpainted, maintaining its original color and texture from Image 1.`;
+    } else if (secondFloorColor.id !== 'none') {
+      twotonePrompt = `\n- Paint only the 2nd floor exterior walls with "${secondFloorColor.label}" (Hex: ${secondFloorColor.hex}). The 1st floor exterior walls must remain entirely unpainted, maintaining its original color and texture from Image 1.`;
+    }
 
     let lightingText = '';
     if (lighting === 'sunset') {
@@ -258,11 +276,12 @@ You are given the following input:
 ${customSampleColor && customSampleColor.base64 ? '- Image 2: A reference color or texture sample uploaded by the user.\n' : ''}
 
 REDESIGN TASK (House Exterior Paint Simulator):
-- Paint the house exterior parts with the following exact, independent colors:
-  1. Main exterior walls: ${mainColorPrompt}
-  2. Accent exterior walls: ${accentColorPrompt}
-  3. Roof: ${roofColorPrompt}
-  4. Doors, window sashes, rain gutters, fascia boards, and trims: ${trimColorPrompt}
+- Paint the house exterior parts with the following exact, independent colors:${twotonePrompt}
+  1. 1st floor exterior walls: ${firstFloorPrompt}
+  2. 2nd floor exterior walls: ${secondFloorPrompt}
+  3. Accent sections and balconies: ${accentColorPrompt}
+  4. Roof: ${roofColorPrompt}
+  5. Doors, window sashes, rain gutters, fascia boards, and trims: ${trimColorPrompt}
 
 LIGHTING & ATMOSPHERE:
 - Render the entire scene under the specified lighting condition: ${lightingText}. Adjust the highlights, shadows, sky appearance, and reflection values on painted walls accordingly.
@@ -272,7 +291,7 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 - Preserve the exact surface roughness, depth map characteristics, bumpiness, and normal map details of the walls in Image 1.
 - Keep the exact same architectural structure, geometry, windows, doors, roof shape, columns, details, landscape, trees, fences, sky, ground, neighbor buildings, and background of the input image (Image 1) 100% perfectly identical.
 - Do NOT alter, warp, distort, tilt, modify, add, or remove any architectural or background elements of the house structure.
-- Only change the paint colors and their light reflections of the specified parts (Main exterior walls, Roof, Accent walls, Doors/Trims) that are requested to be painted. Keep all other elements exactly identical to Image 1.
+- Only change the paint colors and their light reflections of the specified parts (1st floor walls, 2nd floor walls, Roof, Accent walls, Doors/Trims) that are requested to be painted. Keep all other elements exactly identical to Image 1.
 - The output image must look 100% like a high-quality professional photograph of the same house, but painted with the specified colors.`;
 
     parts.push({ text: instruction });

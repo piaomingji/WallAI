@@ -28,14 +28,15 @@ export default function Studio() {
 
   // Selected colors for each paint part
   const [partColors, setPartColors] = useState<{ [key: string]: string }>({
-    main: 'ivory',
+    first_floor: 'ivory',
+    second_floor: 'ivory',
     accent: 'natural_beige',
     roof: 'charcoal_black',
     trim: 'creamy_white',
   });
 
   // Current active paint part being colored
-  const [selectedPart, setSelectedPart] = useState<string>('main');
+  const [selectedPart, setSelectedPart] = useState<string>('first_floor');
 
   // Lighting environment condition
   const [lighting, setLighting] = useState<string>('daylight');
@@ -82,7 +83,8 @@ export default function Studio() {
   // Preset click handler (1-tap application)
   const applyPreset = (preset: PaintPreset) => {
     setPartColors({
-      main: preset.colors.main,
+      first_floor: preset.colors.main,
+      second_floor: preset.colors.main,
       accent: preset.colors.accent,
       roof: preset.colors.roof,
       trim: preset.colors.trim,
