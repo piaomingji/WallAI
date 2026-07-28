@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 export default function PwaRegister() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
-  const [isIos, setIsIos] = useState(false);
+  const [isIosSafari, setIsIosSafari] = useState(false);
 
   useEffect(() => {
     // 1. Service Worker の登録
@@ -22,7 +22,7 @@ export default function PwaRegister() {
       });
     }
 
-    // 2. すでにPWAとしてスタンドアロンで起動している場合はバナーを表示しない
+    // 2. すでにPWAとしてスタンドアロン（アプリ単体）で起動している場合はバナーを表示しない
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
       || (navigator as any).standalone 
       || document.referrer.includes('android-app://');
@@ -31,28 +31,31 @@ export default function PwaRegister() {
       return;
     }
 
-    // 3. iOS判定 (Safariでの「ホーム画面に追加」誘導用)
     const ua = window.navigator.userAgent.toLowerCase();
-    const ios = /iphone|ipad|ipod/.test(ua);
-    const safari = /safari/.test(ua) && !/chrome|crios|fxios|opera|opt|opios|ucbrowser/.test(ua);
+    
+    // 3. モバイル端末判定 (スマホ・タブレット)
+    const isMobile = /iphone|ipad|ipod|android|webos|blackberry|iemobile|opera mini/i.test(ua);
     
     // すでに非表示にされた履歴があるか確認
     const isDismissed = localStorage.getItem('pwa_install_dismissed') === 'true';
 
-    if (ios && safari && !isDismissed) {
-      setIsIos(true);
-      // iOSの場合はマウント後3秒後にふわっと表示
-      const timer = setTimeout(() => setShowBanner(true), 3000);
+    // iOS Safari 判定 (テキスト出し分け用)
+    const ios = /iphone|ipad|ipod/.test(ua);
+    const safari = /safari/.test(ua) && !/chrome|crios|fxios|opera|opt|opios|ucbrowser/.test(ua);
+    setIsIosSafari(ios && safari);
+
+    // スマホ・タブレット環境かつ未表示であれば、3秒後に100%確実にバナーを表示
+    if (isMobile && !isDismissed) {
+      const timer = setTimeout(() => {
+        setShowBanner(true);
+      }, 3000);
       return () => clearTimeout(timer);
     }
 
-    // 4. Android/Chrome などのインストーラープロンプトの検知
+    // 4. Android/Chrome などのインストーラープロンプトの検知 (ブラウザから呼び出す用)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      if (!isDismissed) {
-        setShowBanner(true);
-      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -98,13 +101,13 @@ export default function PwaRegister() {
             WallAIをホーム画面に追加
           </h4>
           <p className="mt-1 text-[11px] leading-normal text-ink-soft">
-            {isIos 
-              ? 'Safariのメニューから「ホーム画面に追加」をタップすると、アプリとして全画面でご利用いただけます。' 
+            {isIosSafari 
+              ? 'Safariの共有ボタンメニューから「ホーム画面に追加」をタップすると、全画面アプリとしてご利用いただけます。' 
               : 'ホーム画面に追加すると、Webブラウザの枠なしでサクサクとシミュレーターを起動できます。'}
           </p>
           
           <div className="mt-3 flex items-center gap-2">
-            {!isIos && deferredPrompt && (
+            {deferredPrompt ? (
               <button
                 type="button"
                 onClick={handleInstallClick}
@@ -112,6 +115,11 @@ export default function PwaRegister() {
               >
                 アプリをインストール
               </button>
+            ) : (
+              // iOS または beforeinstallpromptが未発火のAndroid
+              <span className="text-[9px] font-medium text-ink-faint">
+                {isIosSafari ? '↓ 下の共有ボタンから追加' : '↓ ブラウザのメニューから「ホーム画面に追加」を選択'}
+              </span>
             )}
             <button
               type="button"
