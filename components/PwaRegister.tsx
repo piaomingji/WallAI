@@ -167,7 +167,7 @@ export default function PwaRegister() {
                   // Android等のその他ブラウザの追加手順
                   <>
                     <p className="leading-relaxed">
-                      お使い의ブラウザメニューから簡単にホーム画面に追加できます：
+                      お使いのブラウザメニューから簡単にホーム画面に追加できます：
                     </p>
                     <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
                       <div className="flex items-center gap-2">
