@@ -150,15 +150,15 @@ export default function PwaRegister() {
                     </p>
                     <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
                         <span>画面下部の<strong>「共有ボタン」</strong>（四角から上矢印のアイコン）をタップ</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
                         <span>メニューをスクロールし、<strong>「ホーム画面に追加」</strong>をタップ</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">3</span>
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">3</span>
                         <span>右上の<strong>「追加」</strong>をタップして完了です</span>
                       </div>
                     </div>
@@ -171,11 +171,11 @@ export default function PwaRegister() {
                     </p>
                     <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
                         <span>ブラウザメニュー（右上または右下の「︙」や「☰」）を開く</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
+                        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
                         <span>メニュー内の<strong>「アプリをインストール」</strong>または<strong>「ホーム画面に追加」</strong>をタップします</span>
                       </div>
                     </div>
