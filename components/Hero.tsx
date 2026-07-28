@@ -4,7 +4,7 @@ import Reveal from './Reveal';
 const STATS = [
   { value: '10秒', label: '平均生成時間' },
   { value: '10色以上', label: '標準おすすめカラー' },
-  { value: '通算2回', label: '無料体験' },
+  { value: '通算5回', label: '無料体験' },
 ];
 
 export default function Hero() {

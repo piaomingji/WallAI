@@ -7,7 +7,7 @@ import * as path from 'path';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// IP 및 Google 계정의 누적 생성 횟수를 추적하기 위한 인메모리 맵 (통산 2회 제한, 리셋 없음)
+// IP 및 Google 계정의 누적 생성 횟수를 추적하기 위한 인메모리 맵 (통산 5회 제한, 리셋 없음)
 const ipCounts = new Map<string, number>();
 const googleUserCounts = new Map<string, number>();
 
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     const isProUser = userPlan === 'pro';
     const trackingKey = finalUserIdentifier || ip;
 
-    // 無料体験枠（通算2回）の制限チェック（IPとGoogleアカウントのダブル判定）
+    // 無料体験枠（通算5回）の制限チェック（IPとGoogleアカウントのダブル判定）
     const isDemoMode = !byokKey;
 
     if (isProUser && isDemoMode) {
@@ -146,9 +146,9 @@ export async function POST(req: NextRequest) {
       const currentIpCount = ipCounts.get(ip) || 0;
       const currentGoogleCount = finalUserIdentifier ? (googleUserCounts.get(finalUserIdentifier) || 0) : 0;
 
-      if (currentIpCount >= 2 || currentGoogleCount >= 2) {
+      if (currentIpCount >= 5 || currentGoogleCount >= 5) {
         return NextResponse.json(
-          { error: '無料体験枠（通算2回）をすべて消費しました。引き続きご利用いただくには有料プランをご検討ください。' },
+          { error: '無料体験枠（通算5回）をすべて消費しました。引き続きご利用いただくには有料プランをご検討ください。' },
           { status: 429 }
         );
       }
