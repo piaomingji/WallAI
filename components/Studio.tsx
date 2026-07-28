@@ -23,7 +23,7 @@ const LOADING_STATUSES = [
 
 export default function Studio() {
   // Input states
-  const [uploadedImage, setUploadedImage] = useState<string | null>('/demo-before-v6.jpg');
+  const [uploadedImage, setUploadedImage] = useState<string | null>('/demo-before-v7.jpg');
   const [selectedHouseType, setSelectedHouseType] = useState<string | null>('japanese');
 
   // Selected colors for each paint part
@@ -69,7 +69,7 @@ export default function Studio() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [generationTime, setGenerationTime] = useState<number | null>(null);
-  const [resultImage, setResultImage] = useState<string | null>('/demo-after-v6.jpg');
+  const [resultImage, setResultImage] = useState<string | null>('/demo-after-v7.jpg');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // プレビュー拡大鏡（Magnifier）ステート
