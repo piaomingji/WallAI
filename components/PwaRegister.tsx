@@ -6,6 +6,7 @@ export default function PwaRegister() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIosSafari, setIsIosSafari] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   useEffect(() => {
     // 1. Service Worker の登録
@@ -22,7 +23,7 @@ export default function PwaRegister() {
       });
     }
 
-    // 2. すでにPWAとしてスタンドアロン（アプリ単体）で起動している場合はバナーを表示しない
+    // 2. すでにスタンドアロン（アプリ形式）で起動している場合はバナーを表示しない
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
       || (navigator as any).standalone 
       || document.referrer.includes('android-app://');
@@ -39,12 +40,12 @@ export default function PwaRegister() {
     // すでに非表示にされた履歴があるか確認
     const isDismissed = localStorage.getItem('pwa_install_dismissed') === 'true';
 
-    // iOS Safari 判定 (テキスト出し分け用)
+    // iOS Safari 判定
     const ios = /iphone|ipad|ipod/.test(ua);
     const safari = /safari/.test(ua) && !/chrome|crios|fxios|opera|opt|opios|ucbrowser/.test(ua);
     setIsIosSafari(ios && safari);
 
-    // スマホ・タブレット環境かつ未表示であれば、3秒後に100%確実にバナーを表示
+    // スマホ環境かつ未表示であれば、3秒後にバナーを表示
     if (isMobile && !isDismissed) {
       const timer = setTimeout(() => {
         setShowBanner(true);
@@ -52,7 +53,7 @@ export default function PwaRegister() {
       return () => clearTimeout(timer);
     }
 
-    // 4. Android/Chrome などのインストーラープロンプトの検知 (ブラウザから呼び出す用)
+    // 4. Android/Chrome のネイティブプロンプト検知
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -66,18 +67,17 @@ export default function PwaRegister() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    
-    // プロンプトを表示
-    deferredPrompt.prompt();
-    
-    // ユーザーの選択を待つ
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    
-    // プロンプトは一度しか使えないためクリア
-    setDeferredPrompt(null);
-    setShowBanner(false);
+    if (deferredPrompt) {
+      // Android/Chrome等のネイティブインストールダイアログ
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User choice: ${outcome}`);
+      setDeferredPrompt(null);
+      setShowBanner(false);
+    } else {
+      // iOS Safariや、ネイティブインストールに対応していない場合の追加手順ガイドを表示
+      setShowGuideModal(true);
+    }
   };
 
   const handleDismiss = () => {
@@ -88,49 +88,112 @@ export default function PwaRegister() {
   if (!showBanner) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-sm w-[calc(100vw-3rem)] rounded-2xl border border-line bg-paper-raised p-4 shadow-deep animate-in fade-in slide-in-from-bottom-4 duration-300 md:w-96 select-none">
-      <div className="flex items-start gap-3">
-        {/* アプリのミニアイコン */}
-        <div className="h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden border border-line-strong shadow-sm bg-ink">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon-192.png" alt="WallAI Logo" className="h-full w-full object-cover" />
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-bold text-ink tracking-tight">
-            WallAIをホーム画面に追加
-          </h4>
-          <p className="mt-1 text-[11px] leading-normal text-ink-soft">
-            {isIosSafari 
-              ? 'Safariの共有ボタンメニューから「ホーム画面に追加」をタップすると、全画面アプリとしてご利用いただけます。' 
-              : 'ホーム画面に追加すると、Webブラウザの枠なしでサクサクとシミュレーターを起動できます。'}
-          </p>
+    <>
+      {/* ── 1. 右下のアナウンスバナー ── */}
+      <div className="fixed bottom-6 right-6 z-50 max-w-sm w-[calc(100vw-3rem)] rounded-2xl border border-line bg-paper-raised p-4 shadow-deep animate-in fade-in slide-in-from-bottom-4 duration-300 md:w-96 select-none">
+        <div className="flex items-start gap-3">
+          {/* ミニアイコン */}
+          <div className="h-12 w-12 flex-shrink-0 rounded-xl overflow-hidden border border-line-strong shadow-sm bg-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon-192.png" alt="WallAI Logo" className="h-full w-full object-cover" />
+          </div>
           
-          <div className="mt-3 flex items-center gap-2">
-            {deferredPrompt ? (
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-ink tracking-tight">
+              WallAIをホーム画面に追加
+            </h4>
+            <p className="mt-1 text-[11px] leading-normal text-ink-soft">
+              ホーム画面に追加すると、Webブラウザの枠なしで全画面のネイティブアプリのようにサクサク起動できます。
+            </p>
+            
+            <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleInstallClick}
-                className="rounded-lg bg-clay px-3 py-1.5 text-[10px] font-bold text-paper shadow-sm hover:bg-clay/90 transition-colors"
+                className="rounded-lg bg-clay px-3.5 py-1.5 text-[10px] font-bold text-paper shadow-sm hover:bg-clay/90 transition-colors"
               >
-                アプリをインストール
+                ホーム画面に追加する
               </button>
-            ) : (
-              // iOS または beforeinstallpromptが未発火のAndroid
-              <span className="text-[9px] font-medium text-ink-faint">
-                {isIosSafari ? '↓ 下の共有ボタンから追加' : '↓ ブラウザのメニューから「ホーム画面に追加」を選択'}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[10px] font-bold text-ink-soft hover:bg-paper-raised transition-colors"
-            >
-              閉じる
-            </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[10px] font-bold text-ink-soft hover:bg-paper-raised transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* ── 2. ホーム画面追加 手順ナビゲーションモーダル (iOS/一般ブラウザ用) ── */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="max-w-sm w-full rounded-3xl border border-line bg-paper p-6 shadow-deep animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="h-16 w-16 rounded-2xl overflow-hidden border border-line-strong shadow-sm bg-ink mb-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icon-192.png" alt="WallAI Logo" className="h-full w-full object-cover" />
+              </div>
+              
+              <h3 className="text-sm font-bold text-ink">ホーム画面に追加する方法</h3>
+              
+              <div className="mt-4 w-full text-left space-y-3.5 text-xs text-ink-soft">
+                {isIosSafari ? (
+                  // iOS Safari の追加手順
+                  <>
+                    <p className="leading-relaxed">
+                      iOS (iPhone/iPad) のシステム制限により、以下の手順でお手元での追加をお願いいたします：
+                    </p>
+                    <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
+                        <span>画面下部の<strong>「共有ボタン」</strong>（四角から上矢印のアイコン）をタップ</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
+                        <span>メニューをスクロールし、<strong>「ホーム画面に追加」</strong>をタップ</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">3</span>
+                        <span>右上の<strong>「追加」</strong>をタップして完了です</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // Android等のその他ブラウザの追加手順
+                  <>
+                    <p className="leading-relaxed">
+                      お使いのブラウザメニューから簡単にホーム画面に追加できます：
+                    </p>
+                    <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">1</span>
+                        <span>ブラウザメニュー（右上または右下の「︙」や「☰」）を開く</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-clay text-[10px] font-bold text-paper">2</span>
+                        <span>メニュー内の<strong>「アプリをインストール」</strong>または<strong>「ホーム画面に追加」</strong>をタップします</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGuideModal(false);
+                  setShowBanner(false); // ガイドを見たらバナーも閉じる
+                }}
+                className="mt-6 w-full rounded-xl bg-ink py-2.5 text-xs font-bold text-paper hover:bg-ink/90 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
