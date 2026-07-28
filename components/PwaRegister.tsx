@@ -37,15 +37,16 @@ export default function PwaRegister() {
     // 3. モバイル端末判定 (スマホ・タブレット)
     const isMobile = /iphone|ipad|ipod|android|webos|blackberry|iemobile|opera mini/i.test(ua);
     
-    // すでに非表示にされた履歴があるか確認
-    const isDismissed = localStorage.getItem('pwa_install_dismissed') === 'true';
+    // 非表示にされた有効期限を確認 (24時間再表示制限)
+    const dismissedUntil = localStorage.getItem('pwa_install_dismissed_until');
+    const isDismissed = dismissedUntil && Date.now() < parseInt(dismissedUntil, 10);
 
     // iOS Safari 判定
     const ios = /iphone|ipad|ipod/.test(ua);
     const safari = /safari/.test(ua) && !/chrome|crios|fxios|opera|opt|opios|ucbrowser/.test(ua);
     setIsIosSafari(ios && safari);
 
-    // スマホ環境かつ未表示であれば、3秒後にバナーを表示
+    // スマホ環境かつ未非表示であれば、3秒後にバナーを表示
     if (isMobile && !isDismissed) {
       const timer = setTimeout(() => {
         setShowBanner(true);
@@ -81,7 +82,9 @@ export default function PwaRegister() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('pwa_install_dismissed', 'true');
+    // 24時間の非表示期限を設定
+    const expireTime = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem('pwa_install_dismissed_until', expireTime.toString());
     setShowBanner(false);
   };
 
@@ -164,7 +167,7 @@ export default function PwaRegister() {
                   // Android等のその他ブラウザの追加手順
                   <>
                     <p className="leading-relaxed">
-                      お使いのブラウザメニューから簡単にホーム画面に追加できます：
+                      お使い의ブラウザメニューから簡単にホーム画面に追加できます：
                     </p>
                     <div className="rounded-xl bg-paper-raised p-3 border border-line space-y-2">
                       <div className="flex items-center gap-2">
@@ -184,7 +187,9 @@ export default function PwaRegister() {
                 type="button"
                 onClick={() => {
                   setShowGuideModal(false);
-                  setShowBanner(false); // ガイドを見たらバナーも閉じる
+                  setShowBanner(false);
+                  // ガイドを閉じたら非表示期間をリセットしてテストしやすくする
+                  localStorage.removeItem('pwa_install_dismissed_until');
                 }}
                 className="mt-6 w-full rounded-xl bg-ink py-2.5 text-xs font-bold text-paper hover:bg-ink/90 transition-colors"
               >
