@@ -23,6 +23,14 @@ export default function Header() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'true') {
+        localStorage.clear();
+        window.location.href = window.location.origin + window.location.pathname;
+        return;
+      }
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     updateStatus();
 
