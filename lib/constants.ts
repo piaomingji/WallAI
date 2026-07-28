@@ -98,5 +98,5 @@ export const PAINT_PRESETS: PaintPreset[] = [
   },
 ];
 
-export const FREE_GENERATIONS = 2;
+export const FREE_GENERATIONS = 5;
 export const DAILY_IP_LIMIT = 5;
