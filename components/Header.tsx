@@ -30,6 +30,11 @@ export default function Header() {
         window.location.href = window.location.origin + window.location.pathname;
         return;
       }
+      // 古い初期値(2)があれば新初期値(5)に自動マイグレーション
+      const currentFree = localStorage.getItem('wallai_free_generations');
+      if (currentFree === '2') {
+        localStorage.setItem('wallai_free_generations', '5');
+      }
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     updateStatus();
