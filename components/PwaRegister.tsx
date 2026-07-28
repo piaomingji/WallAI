@@ -53,10 +53,9 @@ export default function PwaRegister() {
     const dismissedUntil = localStorage.getItem('pwa_install_dismissed_until');
     const isDismissed = dismissedUntil && Date.now() < parseInt(dismissedUntil, 10);
 
-    // iOS Safari 判定
-    const ios = /iphone|ipad|ipod/.test(ua);
-    const safari = /safari/.test(ua) && !/chrome|crios|fxios|opera|opt|opios|ucbrowser/.test(ua);
-    setIsIosSafari(ios && safari);
+    // iOS Safari 判定 (iOSデバイスであれば一律で共有ボタンからの追加ガイドを提示)
+    const ios = /iphone|ipad|ipod/.test(ua) || (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsIosSafari(ios);
 
     // スマホ環境かつ未非表示であれば、3秒後にバナーを表示
     if (isMobile && !isDismissed) {
