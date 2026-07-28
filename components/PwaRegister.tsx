@@ -16,6 +16,18 @@ export default function PwaRegister() {
           .register('/sw.js')
           .then((reg) => {
             console.log('ServiceWorker registration successful with scope: ', reg.scope);
+            
+            // アップデートが検出された場合、新しいSWのインストール完了を監視してページを強制リロード
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    window.location.reload();
+                  }
+                });
+              }
+            });
           })
           .catch((err) => {
             console.error('ServiceWorker registration failed: ', err);
