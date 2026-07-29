@@ -316,7 +316,7 @@ export default function Studio() {
       setGenerationTime(Number(((Date.now() - startTime) / 1000).toFixed(1)));
 
       setTimeout(() => {
-        document.getElementById('studio')?.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
       if (!byokMode && userPlan !== 'pro') {
@@ -1043,7 +1043,7 @@ export default function Studio() {
             </div>
 
             {/* ── RIGHT COLUMN: Interactive Before-After Preview (lg:col-span-7) ── */}
-            <div className="lg:col-span-7 flex flex-col gap-6 lg:sticky lg:top-24">
+            <div id="preview-section" className="lg:col-span-7 flex flex-col gap-6 lg:sticky lg:top-24 scroll-mt-24">
               <div className="rounded-3xl border border-line bg-paper-raised p-6 shadow-sm min-h-[300px] flex flex-col items-center justify-center">
                 {isLoading ? (
                   /* ── LOADING SCREEN ── */
