@@ -80,6 +80,8 @@ export default function Studio() {
 
   // シミュレーションID（ハイドレーションエラー対策）
   const [simulationId, setSimulationId] = useState<string>('');
+  // 同時ログイン監視用セッションID
+  const [sessionId, setSessionId] = useState<string>('');
 
   const handlePreviewMouseMove = (e: React.MouseEvent) => {
     const rect = previewContainerRef.current?.getBoundingClientRect();
@@ -99,6 +101,16 @@ export default function Studio() {
   useEffect(() => {
     // クライアントサイドでのみランダムIDを生成し、ハイドレーションエラーを防止
     setSimulationId(`WA-${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
+
+    // セッションIDの読み込みまたは生成
+    if (typeof window !== 'undefined') {
+      let currentSessId = localStorage.getItem('wallai_session_id');
+      if (!currentSessId) {
+        currentSessId = `SESS-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        localStorage.setItem('wallai_session_id', currentSessId);
+      }
+      setSessionId(currentSessId);
+    }
 
     const handleSync = () => {
       // Sync logic if needed
@@ -304,11 +316,20 @@ export default function Studio() {
             hex: customColor.hex,
             base64: customColor.base64,
           } : null,
+          sessionId,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 403 && data.error === 'MULTIPLE_SESSIONS_DETECTED') {
+          localStorage.setItem('wallai_user_plan', 'free');
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new Event('wallai:plan_updated'));
+          alert('別端末で同時ログインが検出されたため、この端末のセッションが終了しました。複数名で同時に利用する場合は「法人プラン」をご検討ください。');
+          window.location.reload();
+          return;
+        }
         throw new Error(data.error || '塗装シミュレーションの生成に失敗しました。');
       }
 
