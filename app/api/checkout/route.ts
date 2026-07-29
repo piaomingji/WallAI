@@ -64,6 +64,28 @@ export async function POST(req: NextRequest) {
         success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}&plan=pro`,
         cancel_url: `${origin}/#pricing`,
       });
+    } else if (planId === 'business') {
+      // Business Plan: Monthly Subscription (5 users, 500 generations/day)
+      session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'jpy',
+              product_data: {
+                name: 'WallAI 法人プラン (月額サブスク)',
+                description: '最大5名まで共有利用可能、1日の合計生成上限500回',
+              },
+              unit_amount: 9800,
+              recurring: { interval: 'month' },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}&plan=business`,
+        cancel_url: `${origin}/#pricing`,
+      });
     } else if (planId === 'quota') {
       // Quota Pack: One-time payment (20 generations)
       session = await stripe.checkout.sessions.create({

@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
     const bodyUserEmail = (typeof userEmail === 'string' && userEmail.trim()) || '';
     const finalUserIdentifier = googleUserEmailHeader || googleUserIdHeader || bodyUserEmail || bodyUserId || null;
 
-    // PROプラン（サブスク会員）のユーザーに対する安全対策（API乱用・連打防止）
-    const isProUser = userPlan === 'pro';
+    // PROプラン・法人プラン（サブスク会員）のユーザーに対する安全対策（API乱用・連打防止）
+    const isProUser = userPlan === 'pro' || userPlan === 'business';
     const trackingKey = finalUserIdentifier || ip;
 
     // 無料体験枠（通算5回）の制限チェック（IPとGoogleアカウントのダブル判定）
@@ -132,10 +132,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 2. 1日あたりの生成上限（フェアユース制限: 最大100回）
-      if (record.dailyCount >= 100) {
+      // 2. 1日あたりの生成上限（フェアユース制限: Proは最大100回、法人プランは最大500回）
+      const limit = userPlan === 'business' ? 500 : 100;
+      if (record.dailyCount >= limit) {
         return NextResponse.json(
-          { error: '本日の生成上限（100回）に達しました。明日以降に再度お試しください。' },
+          { error: `本日の生成上限（${limit}回）に達しました。明日以降に再度お試しください。` },
           { status: 429 }
         );
       }

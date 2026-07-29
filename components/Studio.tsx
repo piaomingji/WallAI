@@ -281,7 +281,7 @@ export default function Studio() {
     }, 2500);
     const startTime = Date.now();
 
-    const isPremiumUser = userPlan === 'pro' || (userPlan === 'quota' && freeCount > 0);
+    const isPremiumUser = userPlan === 'pro' || userPlan === 'business' || (userPlan === 'quota' && freeCount > 0);
     const hasCustomSample = Object.values(partColors).includes('custom_sample');
 
     try {
@@ -1018,6 +1018,8 @@ export default function Studio() {
                     <span>シミュレーター残数:</span>
                     {userPlan === 'pro' ? (
                       <span className="text-clay font-bold animate-pulse">PROプラン（使い放題）</span>
+                    ) : userPlan === 'business' ? (
+                      <span className="text-clay-deep font-bold animate-pulse">法人プラン（使い放題）</span>
                     ) : userPlan === 'quota' ? (
                       <span className="text-ink font-bold text-ink-strong">追加プラン（残り {freeCount}回）</span>
                     ) : (

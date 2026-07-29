@@ -21,6 +21,9 @@ function CheckoutSuccessContent() {
     if (plan === 'pro') {
       localStorage.setItem('wallai_user_plan', 'pro');
       setPlanName('Proプラン (月額サブスクリプション・使い放題)');
+    } else if (plan === 'business') {
+      localStorage.setItem('wallai_user_plan', 'business');
+      setPlanName('法人プラン (月額サブスクリプション・最大5名同時利用可)');
     } else if (plan === 'quota') {
       localStorage.setItem('wallai_user_plan', 'quota');
       // 20回分を追加

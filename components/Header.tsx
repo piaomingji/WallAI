@@ -59,6 +59,10 @@ export default function Header() {
               <span className="rounded-full bg-clay text-paper px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider animate-pulse">
                 PRO会員
               </span>
+            ) : userPlan === 'business' ? (
+              <span className="rounded-full bg-ink text-paper px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider animate-pulse">
+                法人会員
+              </span>
             ) : userPlan === 'quota' ? (
               <span className="rounded-full bg-ink text-paper px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider">
                 残 {quotaRemaining}回
