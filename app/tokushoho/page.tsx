@@ -68,6 +68,7 @@ export default function TokushohoPage() {
                   <ul className="list-disc list-inside space-y-1">
                     <li>単発20回追加パック：980円（税込）</li>
                     <li>Proプラン：月額2,980円（税込）</li>
+                    <li>法人プラン：月額9,800円（税込）</li>
                   </ul>
                 </dd>
               </div>
@@ -97,7 +98,7 @@ export default function TokushohoPage() {
                 <dt className="font-bold text-ink">返品・キャンセル</dt>
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
                   デジタルコンテンツ及びサービスの性質上、決済完了後の返金・返品・キャンセルは受け付けておりません。<br />
-                  定期課金（Proプラン）の解約は、次回課金日の前日までいつでもマイページ/設定より解約手続きを行うことができ、次回以降の請求は発生いたしません。
+                  定期課金（Proプラン・法人プラン）の解約は、次回課金日の前日までいつでもマイページ/設定より解約手続きを行うことができ、次回以降の請求は発生いたしません。
                 </dd>
               </div>
             </dl>
