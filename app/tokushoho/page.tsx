@@ -66,9 +66,9 @@ export default function TokushohoPage() {
                 <dt className="font-bold text-ink">販売価格</dt>
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
                   <ul className="list-disc list-inside space-y-1">
-                    <li>単発20回追加パック：980円（税込）</li>
-                    <li>Proプラン：月額2,980円（税込）</li>
-                    <li>法人プラン：月額9,800円（税込）</li>
+                    <li>単発20回追加パック：1,480円（税込）</li>
+                    <li>Proプラン：月額4,980円（税込）</li>
+                    <li>法人プラン：月額19,800円（税込）</li>
                   </ul>
                 </dd>
               </div>

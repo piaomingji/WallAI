@@ -201,7 +201,7 @@ export default function Pricing() {
           <Reveal delay={150} className="w-full flex">
             <PlanCard
               title="20回生成追加パック"
-              price="¥980"
+              price="¥1,480"
               description="単発で使いたい回数のみを追加したい方に"
               features={[
                 '追加枠 +20回生成クレジット',
@@ -219,7 +219,7 @@ export default function Pricing() {
           <Reveal delay={200} className="w-full flex">
             <PlanCard
               title="Proプラン"
-              price="¥2,980"
+              price="¥4,980"
               period="月"
               description="ビジネス提案や営業用資料として頻繁に利用する方に"
               features={[
@@ -240,7 +240,7 @@ export default function Pricing() {
           <Reveal delay={250} className="w-full flex">
             <PlanCard
               title="法人プラン"
-              price="¥9,800"
+              price="¥19,800"
               period="月"
               description="複数メンバーの営業ツールとして導入・共同利用したい企業様に"
               features={[
