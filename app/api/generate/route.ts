@@ -14,8 +14,8 @@ const googleUserCounts = new Map<string, number>();
 // PRO 회원 안전대책 (일일 100회 제한 & 10秒 연속생성 제한) 추적 맵
 const proUsageTracker = new Map<string, { dailyCount: number; resetAt: number; lastGeneratedAt: number }>();
 
-// 有料アカウントの同時ログインセッション制限追跡マップ (キー: finalUserIdentifier, 値: sessionId)
-const activeSessions = new Map<string, string>();
+// 有料アカウントの同時ログインセッション制限追跡マップ (キー: finalUserIdentifier, 値: sessionIdの配列)
+const activeSessions = new Map<string, string[]>();
 
 export async function POST(req: NextRequest) {
   try {
@@ -114,17 +114,34 @@ export async function POST(req: NextRequest) {
     const isDemoMode = !byokKey;
 
     if (isProUser && isDemoMode) {
-      // 0. 同時ログイン（複数セッション）の防止制御 (Proプランのみ適用、法人プランは共有可)
-      if (userPlan === 'pro' && finalUserIdentifier && sessionId) {
-        const activeSessionId = activeSessions.get(finalUserIdentifier);
-        if (activeSessionId && activeSessionId !== sessionId) {
+      // 0. 同時ログイン（複数セッション）の防止制御 (Proプランは最大1台、法人プランは最大5台)
+      if (finalUserIdentifier && sessionId) {
+        const maxSessions = userPlan === 'business' ? 5 : 1;
+        let sessions = activeSessions.get(finalUserIdentifier) || [];
+
+        if (sessions.includes(sessionId)) {
+          // すでに有効リストにある場合は、最新順にするため一度除外して末尾に追加（更新）
+          sessions = sessions.filter((id) => id !== sessionId);
+          sessions.push(sessionId);
+          activeSessions.set(finalUserIdentifier, sessions);
+        } else {
+          // 新規セッションの場合は制限数チェック
+          if (sessions.length >= maxSessions) {
+            // 上限（個人1 / 法人5）を超えた場合、最も古いセッション（先頭）を切断する
+            sessions.shift();
+          }
+          sessions.push(sessionId);
+          activeSessions.set(finalUserIdentifier, sessions);
+        }
+
+        // 現在の自身のセッションIDが有効リストに残っているか検証
+        const currentActiveSessions = activeSessions.get(finalUserIdentifier) || [];
+        if (!currentActiveSessions.includes(sessionId)) {
           return NextResponse.json(
             { error: 'MULTIPLE_SESSIONS_DETECTED' },
             { status: 403 }
           );
         }
-        // セッションIDの登録・更新
-        activeSessions.set(finalUserIdentifier, sessionId);
       }
 
       const now = Date.now();
