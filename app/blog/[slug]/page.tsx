@@ -61,7 +61,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             <div className="flex items-center gap-4 text-xs text-ink-faint mb-4">
               <time dateTime={post.date}>{post.date.replace(/-/g, '/')}</time>
               <span>•</span>
-              <span className="bg-paper-raised px-2 py-0.5 rounded-md border border-line font-bold">SEO集客記事</span>
+              <span className="bg-paper-raised px-2 py-0.5 rounded-md border border-line font-bold">お役立ちコラム</span>
             </div>
 
             {/* タイトル */}
