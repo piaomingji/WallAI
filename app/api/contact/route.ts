@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, subject, message } = await req.json();
+    const { name, email, subject, message, type } = await req.json();
 
     if (!name || !email || !subject || !message) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     params.append('entry.786759119', email);        // メールアドレス
     params.append('entry.973342212', subject);      // 件名
     params.append('entry.1795818340', message);      // お問い合わせ内容
-    params.append('entry.2093645915', 'その他');      // お問い合わせ種別 (デフォルト)
+    params.append('entry.2093645915', type || 'その他');      // お問い合わせ種別
 
     const response = await fetch(formUrl, {
       method: 'POST',

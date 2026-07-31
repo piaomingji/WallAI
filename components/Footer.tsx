@@ -8,6 +8,7 @@ export default function Footer() {
   // お問い合わせ入力フォーム用ステート
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [contactType, setContactType] = useState('その他');
   const [contactSubject, setContactSubject] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,6 +55,7 @@ export default function Footer() {
         body: JSON.stringify({
           name: contactName,
           email: contactEmail,
+          type: contactType,
           subject: contactSubject,
           message: contactMessage,
         }),
@@ -65,6 +67,7 @@ export default function Footer() {
       setSubmitSuccess(true);
       setContactName('');
       setContactEmail('');
+      setContactType('その他');
       setContactSubject('');
       setContactMessage('');
     } catch (err: any) {
@@ -234,6 +237,19 @@ export default function Footer() {
                           placeholder="your-email@example.com"
                           className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink placeholder-ink-faint focus:border-clay focus:outline-none transition-colors"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-ink">お問い合わせ種別</label>
+                        <select
+                          value={contactType}
+                          onChange={(e) => setContactType(e.target.value)}
+                          className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink focus:border-clay focus:outline-none transition-colors"
+                        >
+                          <option value="製品について">製品について</option>
+                          <option value="技術サポート">技術サポート</option>
+                          <option value="料金・プラン">料金・プラン</option>
+                          <option value="その他">その他</option>
+                        </select>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-ink">件名</label>
