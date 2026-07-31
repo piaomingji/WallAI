@@ -12,14 +12,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Googleフォームの裏側POST連携データ構築
-    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLScU8jMKsoSeW8KED1gE8V6EFsnFVhZ2Hjts-aZEOWiIOOrnTQ/formResponse';
+    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSc2ae-xalCKC6_S-uEZOccZnwFXNPCGnvYtISd6CJPQkydhLw/formResponse';
     
     const params = new URLSearchParams();
-    params.append('entry.1361047838', name);       // お名前
-    params.append('entry.139497555', email);        // メールアドレス
-    params.append('entry.2052518481', subject);      // 件名
-    params.append('entry.555274514', message);      // お問い合わせ内容
-    params.append('entry.1667244900', 'その他');      // お問い合わせ種別 (デフォルト)
+    params.append('entry.256677115', name);       // お名前
+    params.append('entry.786759119', email);        // メールアドレス
+    params.append('entry.973342212', subject);      // 件名
+    params.append('entry.1795818340', message);      // お問い合わせ内容
+    params.append('entry.2093645915', 'その他');      // お問い合わせ種別 (デフォルト)
 
     const response = await fetch(formUrl, {
       method: 'POST',
