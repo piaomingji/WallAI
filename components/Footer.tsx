@@ -1,9 +1,18 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 
 export default function Footer() {
-  const [modalType, setModalType] = useState<'terms' | 'privacy' | null>(null);
+  const [modalType, setModalType] = useState<'terms' | 'privacy' | 'contact' | null>(null);
+
+  // お問い合わせ入力フォーム用ステート
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactSubject, setContactSubject] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
 
   // ESCキーでモーダルを閉じる
   useEffect(() => {
@@ -18,6 +27,53 @@ export default function Footer() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [modalType]);
 
+  // クエリパラメータに contact=true があれば自動でお問い合わせを開く
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('contact') === 'true') {
+        setModalType('contact');
+      }
+    }
+  }, []);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactName.trim() || !contactEmail.trim() || !contactSubject.trim() || !contactMessage.trim()) {
+      setContactError('すべての項目を入力してください。');
+      return;
+    }
+    setIsSubmitting(true);
+    setContactError(null);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: contactName,
+          email: contactEmail,
+          subject: contactSubject,
+          message: contactMessage,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'お問い合わせの送信に失敗しました。');
+      }
+      setSubmitSuccess(true);
+      setContactName('');
+      setContactEmail('');
+      setContactSubject('');
+      setContactMessage('');
+    } catch (err: any) {
+      setContactError(err.message || '接続エラーが発生しました。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <footer className="w-full border-t border-line bg-paper-raised">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 px-6 py-10 text-xs text-ink-faint">
@@ -29,14 +85,16 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-ink-soft">
-          <a
-            href="https://forms.gle/N5sgkGUvMpUSxbgS7"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-clay hover:underline"
+          <button
+            onClick={() => {
+              setModalType('contact');
+              setSubmitSuccess(false);
+              setContactError(null);
+            }}
+            className="cursor-pointer transition-colors hover:text-clay hover:underline bg-transparent border-0 p-0 text-xs text-ink-soft"
           >
             お問い合わせ
-          </a>
+          </button>
           <button
             onClick={() => setModalType('terms')}
             className="cursor-pointer transition-colors hover:text-clay hover:underline bg-transparent border-0 p-0 text-xs text-ink-soft"
@@ -71,7 +129,7 @@ export default function Footer() {
             {/* モーダルヘッダー */}
             <div className="flex items-center justify-between border-b border-line p-5 sm:p-6 bg-paper-raised">
               <h3 className="font-display text-base font-bold text-ink">
-                {modalType === 'terms' ? '利用規約' : 'プライバシーポリシー'}
+                {modalType === 'terms' ? '利用規約' : modalType === 'privacy' ? 'プライバシーポリシー' : 'お問い合わせ'}
               </h3>
               <button
                 onClick={() => setModalType(null)}
@@ -112,7 +170,7 @@ export default function Footer() {
                   <p className="font-semibold text-ink">第6条（免責事項）</p>
                   <p>当サービスにより生成される塗装完成イメージはAIモデルの計算によるシミュレーション結果であり、実際の外壁塗装施工結果や色味を完全に保証するものではありません。実際の施工の際は専門業者へご相談ください。</p>
                 </>
-              ) : (
+              ) : modalType === 'privacy' ? (
                 <>
                   <p className="font-semibold text-ink">1. 個人情報の収集目的</p>
                   <p>当サービスは、決済手続き（Stripe経由での決済認証）、お問い合わせへの対応、およびサービスの利用状況分析（Cookie等の利用）のために必要最小限の個人情報を収集します。</p>
@@ -129,8 +187,98 @@ export default function Footer() {
                   <p>当サービスは、収集した個人情報およびアップロード画像データを、法令に基づく要請がある場合を除き、利用者の承諾なしに第三者へ開示または提供することはありません。</p>
 
                   <p className="font-semibold text-ink">5. プライバシーポリシーの改定</p>
-                  <p>当サービスは、個人情報保護法の改正やサービスの変更に伴い、本プライバシーポリシーを随時更新することがあります。重要な変更がある場合は、サービスサイト上で事前にお知らせいたします。</p>
+                  <p>当サービスは、個人情報保護法の改正やサービスの変更に伴い、本プライバシーポリシーを随時更新することがあります。重要な変更がある場合は、サービスサイト上で事前お知らせいたします。</p>
                 </>
+              ) : (
+                <form onSubmit={handleContactSubmit} className="space-y-4 text-left">
+                  {submitSuccess ? (
+                    <div className="rounded-2xl border border-line bg-paper-raised p-6 text-center space-y-3">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </div>
+                      <h4 className="font-display text-sm font-bold text-ink">送信が完了しました</h4>
+                      <p className="text-xs text-ink-soft leading-relaxed">
+                        お問い合わせありがとうございます。送信内容を確認の上、担当者より「wallai.support@gmail.com」より順次ご返信いたします。
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-ink-soft leading-relaxed mb-4">
+                        サービスや契約に関するご質問など、以下のフォームよりお気軽にお問い合わせください。
+                      </p>
+                      {contactError && (
+                        <div className="p-3 text-xs text-red-500 bg-red-50 rounded-xl border border-red-100 font-semibold">
+                          ⚠️ {contactError}
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-ink">お名前</label>
+                        <input
+                          type="text"
+                          required
+                          value={contactName}
+                          onChange={(e) => setContactName(e.target.value)}
+                          placeholder="山田 太郎"
+                          className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink placeholder-ink-faint focus:border-clay focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-ink">メールアドレス</label>
+                        <input
+                          type="email"
+                          required
+                          value={contactEmail}
+                          onChange={(e) => setContactEmail(e.target.value)}
+                          placeholder="your-email@example.com"
+                          className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink placeholder-ink-faint focus:border-clay focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-ink">件名</label>
+                        <input
+                          type="text"
+                          required
+                          value={contactSubject}
+                          onChange={(e) => setContactSubject(e.target.value)}
+                          placeholder="サービス内容についてのご質問"
+                          className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink placeholder-ink-faint focus:border-clay focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-ink">お問い合わせ内容</label>
+                        <textarea
+                          required
+                          rows={4}
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
+                          placeholder="ご質問、不具合、ご意見などを詳しくご記入ください。"
+                          className="w-full rounded-xl border border-line bg-paper px-4 py-2 text-xs text-ink placeholder-ink-faint focus:border-clay focus:outline-none transition-colors resize-none"
+                        />
+                      </div>
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="w-full cursor-pointer rounded-full bg-ink px-5 py-2.5 text-xs font-bold text-paper hover:bg-clay disabled:bg-ink-faint disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 text-paper" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              送信中...
+                            </>
+                          ) : (
+                            '送信する'
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
               )}
             </div>
 

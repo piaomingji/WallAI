@@ -25,7 +25,7 @@ export default function TokushohoPage() {
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
                   WallAI運営事務局<br />
                   <span className="text-xs text-ink-faint">
-                    ※その他事業者情報（所在地・電話番号等）については、以下のお問い合わせ窓口（Googleフォーム）よりご請求いただいた場合、遅滞なく電子メール等で開示いたします。
+                    ※その他事業者情報（所在地・電話番号等）については、以下のお問い合わせ窓口よりご請求いただいた場合、遅滞なく電子メール等で開示いたします。
                   </span>
                 </dd>
               </div>
@@ -49,15 +49,10 @@ export default function TokushohoPage() {
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
                   以下のフォームよりお問い合わせください。<br />
                   <a
-                    href="https://forms.gle/N5sgkGUvMpUSxbgS7"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="/?contact=true"
                     className="inline-flex items-center gap-1 mt-1 text-clay hover:underline font-semibold"
                   >
                     お問い合わせフォーム
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="inline">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
                   </a>
                 </dd>
               </div>
