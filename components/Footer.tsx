@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function Footer() {
   const [modalType, setModalType] = useState<'terms' | 'privacy' | 'contact' | null>(null);
@@ -116,6 +117,12 @@ export default function Footer() {
           >
             特定商取引法に基づく表記
           </a>
+          <Link
+            href="/blog"
+            className="transition-colors hover:text-clay hover:underline text-xs text-ink-soft font-medium"
+          >
+            ブログ
+          </Link>
         </div>
       </div>
 
