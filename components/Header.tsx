@@ -51,8 +51,8 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-2.5">
-          <Link href="/" className="font-display text-base sm:text-xl font-bold tracking-tight text-ink hover:text-clay transition-colors">
-            🏠 WallAI
+          <Link href="/" className="transition-opacity hover:opacity-85">
+            <img src="/wall_ai_logo.png" alt="WallAI Logo" className="h-7 sm:h-9 w-auto object-contain" />
           </Link>
           <div className="flex items-center gap-1 select-none">
             {userPlan === 'pro' ? (
