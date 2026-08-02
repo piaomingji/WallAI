@@ -58,31 +58,37 @@ const topics = [
 // ランダムにトピックを1つ選択
 const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
 
+const responseSchema = {
+  type: 'object',
+  properties: {
+    slug: { type: 'string' },
+    title: { type: 'string' },
+    excerpt: { type: 'string' },
+    keywords: {
+      type: 'array',
+      items: { type: 'string' }
+    },
+    contentHtml: { type: 'string' }
+  },
+  required: ['slug', 'title', 'excerpt', 'keywords', 'contentHtml']
+};
+
 async function generateArticle() {
   const prompt = `
-あなたは外壁塗装と住宅リフォームのプロのSEOライターです。
+あなたのメインテーマは外壁塗装と住宅リフォームです。
 ターゲットキーワード: "${selectedTopic.keyword}" を含み、以下のヒントに沿った高品質なSEO集客ブログ記事を生成してください。
 タイトルヒント: "${selectedTopic.titleHint}"
 
 【満たすべき条件】
 1. 読者の悩みや疑問を解決する信頼性の高い情報を含め、自然な日本語で執筆してください。
 2. 見出し（h2, h3）、太字（<strong>）、順不同リスト（<ul> <li>）などを使って綺麗にマークアップされたHTML本文（contentHtml）にしてください。
-3. 記事内の後半に, 当サービス（WallAI）のAI外壁カラーシミュレーションを紹介し、以下のCTAリンクを「必ず」中央寄せで設置してください：
+3. 記事内の後半に、当サービス（WallAI）のAI外壁カラーシミュレーションを紹介し、以下のCTAリンクを「必ず」中央寄せで設置してください（HTMLタグに含めてください）：
    <p class="text-center my-8">
      <a href="/?contact=false" class="inline-flex items-center justify-center rounded-full bg-clay px-8 py-4 text-sm font-bold text-paper hover:bg-ink transition-all hover:scale-105 shadow-lg gap-2">
        🎨 我が家で無料シミュレーションを試す
      </a>
    </p>
-4. 出力は以下のJSON構造に厳密に従ってください。
-
-【返却するJSONの構造スキーマ】
-{
-  "slug": "英語でURLに適したユニークなスラッグ（例: wall-paint-beige-gray-guide）",
-  "title": "読者を引きつけるSEOに強い記事タイトル",
-  "excerpt": "記事の概要・抜粋（100〜150文字程度）",
-  "keywords": ["キーワード1", "キーワード2", "キーワード3"],
-  "contentHtml": "h2、h3、p、ul、li、strong等のHTMLタグで構成された本文（markdownではなく素のHTML文字列）"
-}
+4. JSON構造に厳密に従ってください。HTML本文内ではダブルクォーテーションを適切にエスケープするか、シングルクォーテーションを使用してください。
 `;
 
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -91,6 +97,7 @@ async function generateArticle() {
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
+      responseSchema: responseSchema,
     }
   });
 
