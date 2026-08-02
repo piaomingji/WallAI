@@ -34,4 +34,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add lib/blog.ts public/blog/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: AIによる新規ブログ記事と画像の自動生成 [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: AIによる新規ブログ記事と画像の自動生成" && git push)
