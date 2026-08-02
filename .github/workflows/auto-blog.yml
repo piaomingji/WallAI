@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Generate new blog post
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
