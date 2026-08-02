@@ -35,28 +35,30 @@ if (!GEMINI_API_KEY) {
 const topics = [
   {
     keyword: '外壁塗装 色選び ベージュ グレー',
-    titleHint: 'ベージュやグレーの外壁塗装で失敗しない！おしゃれに仕上げる配色テクニック'
+    titleHint: 'ベージュやグレーの外壁塗装で失敗しない！おしゃれに仕上げる配色テクニック',
+    defaultEyecatch: '/blog/beige-gray-guide.png'
   },
   {
     keyword: '外壁 遮熱塗料 効果 寿命',
-    titleHint: '遮熱塗料は本当に効果がある？節電メリットと寿命・費用相場を徹底解説'
+    titleHint: '遮熱塗料は本当に効果がある？節電メリットと寿命・費用相場を徹底解説',
+    defaultEyecatch: '/blog/heat-shielding-paint-guide.png'
   },
   {
     keyword: '外壁塗装 ツートンカラー 組み合わせ',
-    titleHint: '【実例あり】外壁塗装をツートンカラーでおしゃれにする黄金比率とおすすめの組み合わせ'
+    titleHint: '【実例あり】外壁塗装をツートンカラーでおしゃれにする黄金比率とおすすめの組み合わせ',
+    defaultEyecatch: '/blog/two-tone-guide.png'
   },
   {
     keyword: '外壁塗装 費用相場 坪数別',
-    titleHint: '外壁塗装の適正価格は？30坪・40坪の費用相場と悪徳業者を見分ける見積りのチェックポイント'
+    titleHint: '外壁塗装の適正価格は？30坪・40坪の費用相場と悪徳業者を見分ける見積りのチェックポイント',
+    defaultEyecatch: '/blog/estimation-guide.png'
   },
   {
     keyword: '外装サイディング メンテナンス 時期',
-    titleHint: 'サイディング外壁の寿命は何年？塗り替えや張り替えのサインと後悔しないメンテナンス計画'
+    titleHint: 'サイディング外壁の寿命は何年？塗り替えや張り替えのサインと後悔しないメンテナンス計画',
+    defaultEyecatch: '/blog/wall-color-guide.png'
   }
 ];
-
-// ランダムにトピックを1つ選択
-const selectedTopic = topics[Math.floor(Math.random() * topics.length)];
 
 const responseSchema = {
   type: 'object',
@@ -73,10 +75,57 @@ const responseSchema = {
   required: ['slug', 'title', 'excerpt', 'keywords', 'contentHtml']
 };
 
-async function generateArticle() {
+// 既存の記事と重複しない新しいトピックをGeminiで自動生成する関数
+async function generateUniqueTopic(existingTitles, existingKeywords) {
+  const prompt = `
+あなたは住宅リフォームおよび外壁塗装の専門家であり、SEOコンサルタントです。
+現在、ブログには以下のタイトルおよびテーマの記事がすでに存在します：
+${existingTitles.map(t => `- ${t}`).join('\n')}
+
+これらと内容が重複（ダブり）せず、かつ「外壁塗装」「屋根塗装」「住宅外装リフォーム」に関連する、ユーザーの検索意図に沿った新しいターゲットSEOキーワードと記事タイトル案を1つ作成してください。
+特に、以下の既存テーマとは絶対に重複しないようにしてください：
+- ベージュとグレーの外壁塗装・色選び
+- 遮熱塗料の効果、メリット、寿命
+- ツートンカラーの組み合わせや黄金比率
+- 外壁塗装の費用相場や見積もりのチェック方法
+- 外壁サイディングの寿命やメンテナンス時期
+
+魅力的な切り口（例：外壁塗装をするのに最適な季節・月、DIYでの補修限界、近隣への挨拶マナー、雨漏り対策、塗料メーカーごとの比較など）を検討してください。
+
+以下のJSONフォーマットに厳密に従って返却してください：
+{
+  "keyword": "ターゲットとなるSEOキーワード（日本語、スペース区切りで複数可）",
+  "titleHint": "記事のタイトル案（日本語、魅力的でクリックしたくなるもの）"
+}
+`;
+
+  console.log('Generating a completely new, unique topic using Gemini...');
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string' },
+          titleHint: { type: 'string' }
+        },
+        required: ['keyword', 'titleHint']
+      }
+    }
+  });
+
+  const generated = JSON.parse(response.text);
+  console.log(`Generated Dynamic Topic: [Keyword: ${generated.keyword}] [TitleHint: ${generated.titleHint}]`);
+  return generated;
+}
+
+async function generateArticle(selectedTopic) {
   const prompt = `
 あなたのメインテーマは外壁塗装と住宅リフォームです。
-ターゲットキーワード: "${selectedTopic.keyword}" を含み、以下のヒントに沿った高品質なSEO集客ブログ記事を生成してください。
+ターゲットキーワード: "${selectedTopic.keyword}" を含み、以下のヒントに沿った高品質なSEO集集ブログ記事を生成してください。
 タイトルヒント: "${selectedTopic.titleHint}"
 
 【満たすべき条件】
@@ -109,13 +158,26 @@ async function generateArticle() {
 }
 
 // 記事の内容に沿ったアイキャッチ画像を生成する関数 (Imagen 3がエラーの場合はUnsplashのフリー画像をフォールバック)
-async function generateImage(title, excerpt) {
+async function generateImage(title, excerpt, defaultEyecatch, keywords, existingEyecatches, slug) {
   const promptForImagePrompt = `
-以下のブログ記事のタイトルと概要に合致する、美しくプロフェッショナルな画像生成AI用のプロンプト（英語）を1行で作成してください。
-余計な説明文や挨拶は一切省き、プロンプトテキストのみを返却してください。
+You are an expert prompt engineer for AI image generators (Imagen 3).
+Create a highly detailed, descriptive English prompt for generating a blog cover image that perfectly matches the following article:
 
-タイトル: ${title}
-概要: ${excerpt}
+Article Title: ${title}
+Article Excerpt: ${excerpt}
+
+Requirements for the generated prompt:
+1. Describe a realistic, high-quality, professional photograph of a residential house exterior in Japan.
+2. The image MUST visually represent the theme of the article. For example:
+   - If the article is about "beige and gray", describe a modern house with beige and gray exterior walls.
+   - If the article is about "twotone color", describe a house with a clear two-tone color combination (e.g., dark brown first floor, white second floor).
+   - If the article is about "cost estimation" or "checking quotes", describe a beautiful modern house exterior showing high value and quality.
+   - If the article is about "siding maintenance", describe a house with clean, high-quality siding textures.
+   - If the article is about seasons/timing (e.g., spring/autumn), describe a house exterior with beautiful clear sky and seasonal trees (like cherry blossoms for spring or autumn leaves).
+3. Specify realistic lighting (e.g., "warm afternoon sunlight", "bright daytime daylight") and setting (e.g., "clean street", "subtle green plants in the front garden").
+4. Use architectural photography style keywords: "architectural photography, modern Japanese house design, high-end residential exterior, detailed texture, 8k resolution".
+5. Do NOT include any text, overlays, UI elements, signs, or people in the image.
+6. The prompt must be in English and output ONLY the prompt text, without any introductory or concluding remarks.
 `;
 
   try {
@@ -143,28 +205,87 @@ async function generateImage(title, excerpt) {
     const base64Image = imageResponse.generatedImages[0].image.imageBytes;
     return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
   } catch (error) {
-    console.log('Imagen 3 generation failed or not supported. Falling back to high-quality Unsplash image...', error.message);
+    console.log('Imagen 3 generation failed or not supported. Falling back to specific image...', error.message);
     
-    // 外壁用の高画質Unsplash画像リスト
+    // プリセットのデフォルト画像が指定されており、まだ使われていない場合はそれを使用
+    if (defaultEyecatch && !existingEyecatches.includes(defaultEyecatch)) {
+      console.log(`Using default preset eyecatch: ${defaultEyecatch}`);
+      return { type: 'url', data: defaultEyecatch };
+    }
+    
+    // ダイナミックに生成されたトピックの場合、キーワードをもとにUnsplashから動的に合致する画像URLを作成
+    // 同一画像が他の記事で使い回されないよう、クエリパラメータに一意の `sig=${slug}` を付与して一意性を担保
+    const queryKeywords = keywords && keywords.length > 0 
+      ? keywords.filter(k => k !== 'WallAI').slice(0, 3).join(',')
+      : 'house,exterior';
+    const dynamicUnsplashUrl = `https://images.unsplash.com/featured/1200x675/?${encodeURIComponent(queryKeywords)},house,exterior&sig=${slug}`;
+    
+    // 静的なフォールバック画像リスト（他で使用済みのURLは排除する）
     const fallbackImages = [
       'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
     ];
-    const selectedUrl = fallbackImages[Math.floor(Math.random() * fallbackImages.length)];
-    return { type: 'url', data: selectedUrl };
+    
+    // 未使用の画像のみにフィルタリング
+    const unusedFallbackImages = fallbackImages.filter(img => !existingEyecatches.includes(img));
+    
+    if (unusedFallbackImages.length > 0) {
+      const selectedUrl = unusedFallbackImages[Math.floor(Math.random() * unusedFallbackImages.length)];
+      console.log(`Using unused fallback Unsplash image URL: ${selectedUrl}`);
+      return { type: 'url', data: selectedUrl };
+    } else {
+      console.log(`Using unique dynamic Unsplash featured URL: ${dynamicUnsplashUrl}`);
+      return { type: 'url', data: dynamicUnsplashUrl };
+    }
   }
 }
 
 async function main() {
   try {
+    // lib/blog.ts から既存のブログ記事の情報を読み込む
+    const filePath = path.join(process.cwd(), 'lib/blog.ts');
+    let fileContent = fs.readFileSync(filePath, 'utf-8');
+
+    // 既存の記事タイトル、キーワード、スラッグ、アイキャッチを正規表現で抽出
+    const existingTitles = [...fileContent.matchAll(/"title":\s*"([^"]+)"/g)].map(m => m[1]);
+    const existingKeywords = [...fileContent.matchAll(/"keywords":\s*\[([\s\S]*?)\]/g)].flatMap(m => {
+      return m[1].split(',').map(k => k.trim().replace(/"/g, ''));
+    });
+    const existingSlugs = [...fileContent.matchAll(/"slug":\s*"([^"]+)"/g)].map(m => m[1]);
+    const existingEyecatches = [...fileContent.matchAll(/"eyecatch":\s*"([^"]+)"/g)].map(m => m[1]);
+
+    console.log(`Loaded ${existingSlugs.length} existing articles from lib/blog.ts.`);
+
+    // プリセットトピックからまだ使われていないものを抽出
+    const unusedTopics = topics.filter(topic => {
+      // タイトルまたは主要な類似表現が既に存在するかチェック
+      const isTitleExists = existingTitles.some(title => title.includes(topic.titleHint.slice(0, 8)));
+      return !isTitleExists;
+    });
+
+    let selectedTopic;
+    if (unusedTopics.length > 0) {
+      // 未使用のプリセットがあれば、そこからランダムに選択
+      selectedTopic = unusedTopics[Math.floor(Math.random() * unusedTopics.length)];
+      console.log(`Selected unused preset topic: [Keyword: ${selectedTopic.keyword}]`);
+    } else {
+      // すべてのプリセットが使用済みの場合は、Geminiで新しいユニークなテーマを生成
+      selectedTopic = await generateUniqueTopic(existingTitles, existingKeywords);
+    }
+
     console.log('Generating AI Blog post...');
-    const article = await generateArticle();
+    const article = await generateArticle(selectedTopic);
+
+    // 既存のスラッグと重複した場合の回避措置
+    if (existingSlugs.includes(article.slug)) {
+      article.slug = `${article.slug}-${Date.now().toString().slice(-4)}`;
+    }
     
     // 画像の自動生成
     console.log('Generating matching eyecatch image...');
-    const resultImage = await generateImage(article.title, article.excerpt);
+    const resultImage = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch, article.keywords, existingEyecatches, article.slug);
     
     if (resultImage.type === 'buffer') {
       const imageFilename = `${article.slug}.jpg`;
@@ -182,10 +303,6 @@ async function main() {
     article.date = today;
 
     console.log(`Generated article title: ${article.title}`);
-
-    // lib/blog.ts の更新
-    const filePath = path.join(process.cwd(), 'lib/blog.ts');
-    let fileContent = fs.readFileSync(filePath, 'utf-8');
 
     // blogPosts 配列の定義部分を見つける
     const arrayStartMatch = fileContent.match(/export const blogPosts: BlogPost\[\] = \[\s*/);
