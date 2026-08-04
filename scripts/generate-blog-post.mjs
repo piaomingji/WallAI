@@ -190,22 +190,27 @@ Requirements for the generated prompt:
     const imagePrompt = promptResponse.text.trim();
     console.log(`Generated Image Prompt: ${imagePrompt}`);
 
-    console.log('Attempting to generate image via Imagen 4...');
-    // Imagenモデルで画像を生成
-    const imageResponse = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
-      prompt: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, highly detailed, blog header banner`,
-      config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: '16:9'
+    console.log('Attempting to generate image via gemini-3.1-flash-image...');
+    // gemini-3.1-flash-image で画像を生成
+    const imageResponse = await ai.interactions.create({
+      model: 'gemini-3.1-flash-image',
+      input: [
+        { type: 'text', text: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, highly detailed, blog header banner` }
+      ],
+      response_format: {
+        type: 'image',
+        aspect_ratio: '16:9',
+        image_size: '2K'
       }
     });
 
-    const base64Image = imageResponse.generatedImages[0].image.imageBytes;
-    return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
+    if (imageResponse.output_image && imageResponse.output_image.data) {
+      const base64Image = imageResponse.output_image.data;
+      return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
+    }
+    throw new Error('Image data not found in response');
   } catch (error) {
-    console.log('Imagen 4 generation failed or not supported. Falling back to specific image...', error.message);
+    console.log('Gemini Image generation failed or not supported. Falling back to specific image...', error.message);
     
     // プリセットのデフォルト画像が指定されており、まだ使われていない場合はそれを使用
     if (defaultEyecatch && !existingEyecatches.includes(defaultEyecatch)) {
