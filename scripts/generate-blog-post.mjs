@@ -100,7 +100,7 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
 `;
 
   console.log('Generating a completely new, unique topic using Gemini...');
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
@@ -140,7 +140,7 @@ async function generateArticle(selectedTopic) {
 4. JSON構造に厳密に従ってください。HTML本文内ではダブルクォーテーションを適切にエスケープするか、シングルクォーテーションを使用してください。
 `;
 
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
@@ -181,7 +181,7 @@ Requirements for the generated prompt:
 `;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
     const promptResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: promptForImagePrompt
@@ -190,10 +190,10 @@ Requirements for the generated prompt:
     const imagePrompt = promptResponse.text.trim();
     console.log(`Generated Image Prompt: ${imagePrompt}`);
 
-    console.log('Attempting to generate image via Imagen 3...');
+    console.log('Attempting to generate image via Imagen 4...');
     // Imagenモデルで画像を生成
     const imageResponse = await ai.models.generateImages({
-      model: 'imagen-3.0-generate-002',
+      model: 'imagen-4.0-generate-001',
       prompt: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, highly detailed, blog header banner`,
       config: {
         numberOfImages: 1,
@@ -205,7 +205,7 @@ Requirements for the generated prompt:
     const base64Image = imageResponse.generatedImages[0].image.imageBytes;
     return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
   } catch (error) {
-    console.log('Imagen 3 generation failed or not supported. Falling back to specific image...', error.message);
+    console.log('Imagen 4 generation failed or not supported. Falling back to specific image...', error.message);
     
     // プリセットのデフォルト画像が指定されており、まだ使われていない場合はそれを使用
     if (defaultEyecatch && !existingEyecatches.includes(defaultEyecatch)) {
@@ -215,16 +215,13 @@ Requirements for the generated prompt:
     
     // ダイナミックに生成されたトピックの場合、キーワードをもとにUnsplashから動的に合致する画像URLを作成
     // 同一画像が他の記事で使い回されないよう、クエリパラメータに一意の `sig=${slug}` を付与して一意性を担保
-    const queryKeywords = keywords && keywords.length > 0 
-      ? keywords.filter(k => k !== 'WallAI').slice(0, 3).join(',')
-      : 'house,exterior';
-    const dynamicUnsplashUrl = `https://images.unsplash.com/featured/1200x675/?${encodeURIComponent(queryKeywords)},house,exterior&sig=${slug}`;
+    const dynamicUnsplashUrl = `https://images.unsplash.com/featured/1200x675/?house,exterior,roof&sig=${slug}`;
     
-    // 静的なフォールバック画像リスト（他で使用済みのURLは排除する）
+    // 静的なフォールバック画像リスト（他で使用済みのURLは排除する - 住宅の外装のみ）
     const fallbackImages = [
-      'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1513584684374-8bab748fbf90?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
     ];
     
