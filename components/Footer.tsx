@@ -113,6 +113,8 @@ export default function Footer() {
           </button>
           <a
             href="/tokushoho"
+            target="_blank"
+            rel="noopener noreferrer"
             className="transition-colors hover:text-clay hover:underline"
           >
             特定商取引法に基づく表記
