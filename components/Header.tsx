@@ -58,7 +58,7 @@ export default function Header() {
           rel="noopener noreferrer"
           className="font-bold text-ink hover:text-clay inline-flex items-center gap-0.5 transition-colors underline decoration-dotted"
         >
-          お部屋の内装リフォーム・インテリアAI「ミセルリフォーム」はこちら 🏠 ➔
+          お部屋の内装リフォーム・インテリアAI「ミセルリフォーム」はこちら 🎨 ➔
         </a>
       </div>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
