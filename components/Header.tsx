@@ -49,6 +49,18 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/85 backdrop-blur-md">
+      {/* 姉妹サービス紹介バナー */}
+      <div className="bg-sand/30 border-b border-line py-1.5 text-center text-[10px] sm:text-xs">
+        <span className="font-semibold text-ink-soft">姉妹サービス: </span>
+        <a 
+          href="https://reroom-ai-rust.vercel.app" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="font-bold text-ink hover:text-clay inline-flex items-center gap-0.5 transition-colors underline decoration-dotted"
+        >
+          お部屋の内装リフォーム・インテリアAI「ミセルリフォーム」はこちら 🏠 ➔
+        </a>
+      </div>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-2.5">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-85">

@@ -3,7 +3,7 @@
   "short_name": "WallAI",
   "description": "お家の写真をアップロードして色を選ぶだけで、AIが外壁塗装後の完成予想図を瞬時にシミュレーションするツールです。",
   "start_url": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#ffffff",
   "theme_color": "#111827",
   "orientation": "portrait",
