@@ -219,17 +219,36 @@ Requirements for the generated prompt:
       return { type: 'url', data: defaultEyecatch };
     }
     
-    // ダイナミックに生成されたトピックの場合、キーワードをもとにUnsplashから動的に合致する画像URLを作成
-    // 同一画像が他の記事で使い回されないよう、クエリパラメータに一意の `sig=${slug}` を付与して一意性を担保
-    const dynamicUnsplashUrl = `https://images.unsplash.com/featured/1200x675/?house,exterior,roof&sig=${slug}`;
-    
     // 静的なフォールバック画像リスト（他で使用済みのURLは排除する - 住宅の外装のみ）
-    const fallbackImages = [
-      'https://images.unsplash.com/photo-1513584684374-8bab748fbf90?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
+    const photoIds = [
+      'photo-1513584684374-8bab748fbf90', 'photo-1605276374104-dee2a0ed3cd6', 'photo-1580587771525-78b9dba3b914', 'photo-1512917774080-9991f1c4c750',
+      'photo-1600585154340-be6161a56a0c', 'photo-1600596542815-ffad4c1539a9', 'photo-1512915922686-57c11dde9b6b', 'photo-1600585154526-990dced4db0d',
+      'photo-1513694203232-719a280e022f', 'photo-1486406146926-c627a92ad1ab', 'photo-1542314831-068cd1dbfeeb', 'photo-1416331108676-a22ccb276e35',
+      'photo-1507089947368-19c1da9775ae', 'photo-1523217582562-09d0def993a6', 'photo-1592595896551-12b371d546d5', 'photo-1582268611958-ebfd161ef9cf',
+      'photo-1583608205776-bfd35f0d9f83', 'photo-1598257006458-087169a1f08d', 'photo-1602941525421-8f8b81d3edbb', 'photo-1505873242700-f289a29e1e0f',
+      'photo-1505691938895-1758d7feb511', 'photo-1510798831971-661eb04b3739', 'photo-1513694203232-719a280e022f', 'photo-1549517045-bc93de006e53',
+      'photo-1554995207-c18c203602cb', 'photo-1582063287911-c75c3f3f3f30', 'photo-1584622781564-1d987f733321', 'photo-1585412727339-54e4bae3bbf9',
+      'photo-1599809275671-b59411bc4824', 'photo-1600047509807-ba8f99d2cdde', 'photo-1600585154363-67eb9e2e2099', 'photo-1600596542815-ffad4c1539a9',
+      'photo-1600607687920-4e2a09cf159d', 'photo-1605117882932-f9e32b03fea9', 'photo-1613490493576-7fde63acd811', 'photo-1613977257363-707ba9348227',
+      'photo-1615529182904-14819c35db37', 'photo-1618219908412-a29a1bb7b86e', 'photo-1618219944342-824e40a13285', 'photo-1618221195710-dd6b41faaea6',
+      'photo-1628624747186-a941c476b7ef', 'photo-1628744504164-05177a80b8e8', 'photo-1502005229762-fc1b2b812ca5', 'photo-1512917774080-9991f1c4c750',
+      'photo-1516450360452-9312f5e86fc7', 'photo-1528909514045-2fa4ac7a08ba', 'photo-1558036117-15d82a90b9b1', 'photo-1570129477492-45c003edd2be',
+      'photo-1576941089067-2de3c901e126', 'photo-1580587771525-78b9dba3b914', 'photo-1591825729269-caeb344f6df2', 'photo-1592595896551-12b371d546d5',
+      'photo-1592595896619-22497f511477', 'photo-1600047509807-ba8f99d2cdde', 'photo-1600585154340-be6161a56a0c', 'photo-1600585154526-990dced4db0d',
+      'photo-1600596542815-ffad4c1539a9', 'photo-1600607687644-c7171b42498f', 'photo-1600607687939-ce8a6c25118c', 'photo-1602941525421-8f8b81d3edbb',
+      'photo-1605276374104-dee2a0ed3cd6', 'photo-1613977257363-707ba9348227', 'photo-1615529182904-14819c35db37', 'photo-1618219908412-a29a1bb7b86e',
+      'photo-1618219944342-824e40a13285', 'photo-1618220179428-22790b461013', 'photo-1618221195710-dd6b41faaea6', 'photo-1618221381711-42ca8ab6e908',
+      'photo-1628624747186-a941c476b7ef', 'photo-1628744504164-05177a80b8e8', 'photo-1448630360428-65456885c650', 'photo-1464146072230-91cabc268266',
+      'photo-1475855581690-80acf93304a3', 'photo-1484154218962-a197022b5858', 'photo-1490122417551-6ee9691429d0', 'photo-1501183007986-d0d080b147f9',
+      'photo-1501854140801-50d01698950b', 'photo-1505873242700-f289a29e1e0f', 'photo-1507089947368-19c1da9775ae', 'photo-1512915922686-57c11dde9b6b',
+      'photo-1512917774080-9991f1c4c750', 'photo-1512918751678-df1611a2f6bf', 'photo-1513584684374-8bab748fbf90', 'photo-1513694203232-719a280e022f',
+      'photo-1518780664697-55e3ad937233', 'photo-1518780664697-55e3ad937233', 'photo-1523217582562-09d0def993a6', 'photo-1542314831-068cd1dbfeeb',
+      'photo-1542838132-92c53300491e', 'photo-1564013799919-ab600027ffc6', 'photo-1568605114967-8130f3a36994', 'photo-1570129477492-45c003edd2be',
+      'photo-1572120360610-d971b9d7767c', 'photo-1575908513180-d60f43f81002', 'photo-1576941089067-2de3c901e126', 'photo-1580587771525-78b9dba3b914',
+      'photo-1582268611958-ebfd161ef9cf', 'photo-1583608205776-bfd35f0d9f83', 'photo-1584622781564-1d987f733321', 'photo-1585412727339-54e4bae3bbf9'
     ];
+
+    const fallbackImages = photoIds.map(id => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=80`);
     
     // 未使用の画像のみにフィルタリング
     const unusedFallbackImages = fallbackImages.filter(img => !existingEyecatches.includes(img));
@@ -239,8 +258,15 @@ Requirements for the generated prompt:
       console.log(`Using unused fallback Unsplash image URL: ${selectedUrl}`);
       return { type: 'url', data: selectedUrl };
     } else {
-      console.log(`Using unique dynamic Unsplash featured URL: ${dynamicUnsplashUrl}`);
-      return { type: 'url', data: dynamicUnsplashUrl };
+      // すべて使用済みの場合は、slugのハッシュ値に基づいて決定論的にプールから選択し、リンク切れを回避
+      let hash = 0;
+      for (let i = 0; i < slug.length; i++) {
+        hash = slug.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % fallbackImages.length;
+      const selectedUrl = fallbackImages[index];
+      console.log(`All fallback images used. Selecting deterministic image from pool: ${selectedUrl}`);
+      return { type: 'url', data: selectedUrl };
     }
   }
 }

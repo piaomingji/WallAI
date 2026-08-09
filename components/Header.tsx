@@ -69,7 +69,7 @@ export default function Header() {
               WallAI
             </span>
           </Link>
-          <div className="flex items-center gap-1 select-none">
+          <div className="flex items-center gap-1.5 select-none">
             {userPlan === 'pro' ? (
               <span className="rounded-full bg-clay text-paper px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider animate-pulse">
                 PRO会員
@@ -86,6 +86,22 @@ export default function Header() {
               <span className="rounded-full bg-sand px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold text-ink-soft">
                 体験残 {quotaRemaining}回
               </span>
+            )}
+            
+            {(userPlan === 'pro' || userPlan === 'business') && (
+              <button
+                onClick={() => {
+                  if (confirm('定期プランを解約しますか？\n解約後も現在の残り期間は継続してご利用いただけます。')) {
+                    localStorage.setItem('wallai_user_plan', 'free');
+                    window.dispatchEvent(new Event('wallai:plan_updated'));
+                    alert('解約手続きが完了しました。フリープランに切り替わりました。');
+                    window.location.reload();
+                  }
+                }}
+                className="rounded-full bg-red-50 hover:bg-red-100 text-red-600 px-2 py-0.5 text-[8px] sm:text-[9px] font-bold transition-all ml-1 cursor-pointer border border-red-200"
+              >
+                解約する
+              </button>
             )}
           </div>
         </div>
