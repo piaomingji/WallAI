@@ -10,7 +10,7 @@ const notoSerif = Noto_Serif_JP({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://wall-ai-inky.vercel.app"),
+  metadataBase: new URL("https://wall.smart-ai-portal.com"),
   title: "WallAI - AI外壁塗装シミュレーター | 営業提案・完成予想図作成ツール",
   description:
     "お家の写真をアップロードして色を選ぶだけで、AIが約10秒で外壁塗装後の完成予想図を作成。部位ごとの色分けや配色カルテPDFの印刷にも対応し、リフォーム・外壁塗装の提案をスマートにします。",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "WallAI - AI外壁塗装シミュレーター | 営業提案・完成予想図作成ツール",
     description:
       "お家の写真をアップロードして色を選ぶだけで、AIが約10秒で外壁塗装後の完成予想図を作成します。",
-    url: "https://wall-ai-inky.vercel.app",
+    url: "https://wall.smart-ai-portal.com",
     siteName: "WallAI",
     images: [
       {

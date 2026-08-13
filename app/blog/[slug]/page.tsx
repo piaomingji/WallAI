@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps) {
     };
   }
 
-  const siteUrl = 'https://wall-ai-inky.vercel.app';
+  const siteUrl = 'https://wall.smart-ai-portal.com';
   const imageUrl = post.eyecatch.startsWith('http') 
     ? post.eyecatch 
     : `${siteUrl}${post.eyecatch}`;

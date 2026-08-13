@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next';
 import { blogPosts } from '@/lib/blog';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://wall-ai-inky.vercel.app';
+  const baseUrl = 'https://wall.smart-ai-portal.com';
 
   const routes = ['', '/blog', '/tokushoho'].map((route) => ({
     url: `${baseUrl}${route}`,

@@ -53,9 +53,7 @@ export default function Header() {
       <div className="bg-sand/30 border-b border-line py-1.5 text-center text-[10px] sm:text-xs">
         <span className="font-semibold text-ink-soft">姉妹サービス: </span>
         <a 
-          href="https://reroom-ai-rust.vercel.app" 
-          target="_blank" 
-          rel="noopener noreferrer"
+          href="https://reroom.smart-ai-portal.com"
           className="font-bold text-ink hover:text-clay inline-flex items-center gap-0.5 transition-colors underline decoration-dotted"
         >
           お部屋の内装リフォーム・インテリアAI「ミセルリフォーム」はこちら 🎨 ➔

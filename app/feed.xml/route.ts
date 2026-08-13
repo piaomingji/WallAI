@@ -4,7 +4,7 @@ import { blogPosts } from '@/lib/blog';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const siteUrl = 'https://wall-ai-inky.vercel.app';
+  const siteUrl = 'https://wall.smart-ai-portal.com';
 
   const xmlItems = blogPosts
     .map((post) => {
