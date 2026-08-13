@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wall-ai-cache-v2';
+const CACHE_NAME = 'wall-ai-cache-v3';
 const urlsToCache = [
   '/',
   '/manifest.json',
@@ -29,10 +29,17 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ネットワーク優先: 常に最新を取得し、オフライン時のみキャッシュにフォールバック
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
