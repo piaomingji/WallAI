@@ -167,7 +167,10 @@ Create a highly detailed, descriptive English prompt for generating a blog cover
 Article Title: ${title}
 Article Excerpt: ${excerpt}
 
-Requirements for the generated prompt:
+MANDATORY REQUIREMENTS FOR HIGH-CTR CLICK-WORTHY IMAGES:
+1. MUST be photorealistic, ultra-high quality, 8k architectural showcase photography of a beautiful modern Japanese home exterior.
+2. Must feature warm golden-hour lighting, pristine painted walls, elegant modern design, and beautiful depth of field.
+3. NO uncanny artifacts, NO text, NO ugly distorted scenes.
 1. Describe a realistic, high-quality, professional photograph of a residential house exterior in Japan.
 2. The image MUST visually represent the theme of the article. For example:
    - If the article is about "beige and gray", describe a modern house with beige and gray exterior walls.
