@@ -320,18 +320,16 @@ async function main() {
     console.log('Generating matching eyecatch image...');
     const resultImage = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch, article.keywords, existingEyecatches, article.slug);
     
+    const blogDir = path.join(process.cwd(), 'public/blog');
+    if (!fs.existsSync(blogDir)) {
+      fs.mkdirSync(blogDir, { recursive: true });
+    }
+
     if (resultImage.type === 'buffer') {
       const imageFilename = `${article.slug}.jpg`;
-      const imagePath = path.join(process.cwd(), 'public/blog', imageFilename);
+      const imagePath = path.join(blogDir, imageFilename);
       fs.writeFileSync(imagePath, resultImage.data);
-      console.log();
-      try {
-        const pyCmd = ;
-        execSync(pyCmd, { stdio: 'ignore' });
-        console.log();
-      } catch (err) {
-        console.warn();
-      }
+      console.log(`Saved eyecatch image to ${imagePath}`);
       article.eyecatch = `/blog/${imageFilename}`;
     } else {
       console.log(`Using fallback Unsplash image URL: ${resultImage.data}`);
