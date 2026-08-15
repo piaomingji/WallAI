@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { execSync } from 'child_process';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 
@@ -323,7 +324,14 @@ async function main() {
       const imageFilename = `${article.slug}.jpg`;
       const imagePath = path.join(process.cwd(), 'public/blog', imageFilename);
       fs.writeFileSync(imagePath, resultImage.data);
-      console.log(`Saved generated eyecatch image to: public/blog/${imageFilename}`);
+      console.log();
+      try {
+        const pyCmd = ;
+        execSync(pyCmd, { stdio: 'ignore' });
+        console.log();
+      } catch (err) {
+        console.warn();
+      }
       article.eyecatch = `/blog/${imageFilename}`;
     } else {
       console.log(`Using fallback Unsplash image URL: ${resultImage.data}`);
