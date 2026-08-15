@@ -10,6 +10,36 @@ const kv = createClient({
   token: process.env.KV_REST_API_TOKEN || process.env.REDIS_REST_API_TOKEN || "",
 });
 
+async function safeKvGet(key: string): Promise<number> {
+  try {
+    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
+    const val = await kv.get<number>(key);
+    return typeof val === "number" ? val : 0;
+  } catch (e) {
+    console.warn("KV get failed:", e);
+    return 0;
+  }
+}
+
+async function safeKvSet(key: string, value: number, opts?: any) {
+  try {
+    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return;
+    await kv.set(key, value, opts);
+  } catch (e) {
+    console.warn("KV set failed:", e);
+  }
+}
+
+async function safeKvTtl(key: string): Promise<number> {
+  try {
+    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
+    return await kv.ttl(key);
+  } catch (e) {
+    console.warn("KV ttl failed:", e);
+    return 0;
+  }
+}
+
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -183,8 +213,8 @@ export async function POST(req: NextRequest) {
       const ipKey = `wall-ai:ip:${ip}`;
       const googleKey = finalUserIdentifier ? `wall-ai:google:${finalUserIdentifier}` : null;
 
-      const currentIpCount = (await kv.get<number>(ipKey)) || 0;
-      const currentGoogleCount = googleKey ? ((await kv.get<number>(googleKey)) || 0) : 0;
+      const currentIpCount = await safeKvGet(ipKey);
+      const currentGoogleCount = googleKey ? (await safeKvGet(googleKey)) : 0;
 
       if (currentIpCount >= 5 || currentGoogleCount >= 5) {
         return NextResponse.json(
@@ -417,23 +447,23 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
       if (!isPremium) {
         // IP address rate limiting with 72-hour reset (259200 seconds)
         const ipKey = `wall-ai:ip:${ip}`;
-        const currentIpCount = (await kv.get<number>(ipKey)) || 0;
+        const currentIpCount = await safeKvGet(ipKey);
         if (currentIpCount === 0) {
-          await kv.set(ipKey, 1, { ex: 72 * 60 * 60 });
+          await safeKvSet(ipKey, 1, { ex: 72 * 60 * 60 });
         } else {
-          const ttl = await kv.ttl(ipKey);
-          await kv.set(ipKey, currentIpCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
+          const ttl = await safeKvTtl(ipKey);
+          await safeKvSet(ipKey, currentIpCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
         }
 
         // Google account rate limiting with 72-hour reset
         if (finalUserIdentifier) {
           const googleKey = `wall-ai:google:${finalUserIdentifier}`;
-          const currentGoogleCount = (await kv.get<number>(googleKey)) || 0;
+          const currentGoogleCount = await safeKvGet(googleKey);
           if (currentGoogleCount === 0) {
-            await kv.set(googleKey, 1, { ex: 72 * 60 * 60 });
+            await safeKvSet(googleKey, 1, { ex: 72 * 60 * 60 });
           } else {
-            const ttl = await kv.ttl(googleKey);
-            await kv.set(googleKey, currentGoogleCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
+            const ttl = await safeKvTtl(googleKey);
+            await safeKvSet(googleKey, currentGoogleCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
           }
         }
       }
