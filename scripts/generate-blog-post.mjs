@@ -195,22 +195,20 @@ MANDATORY REQUIREMENTS FOR HIGH-CTR CLICK-WORTHY IMAGES:
     const imagePrompt = promptResponse.text.trim();
     console.log(`Generated Image Prompt: ${imagePrompt}`);
 
-    console.log('Attempting to generate image via gemini-3.1-flash-image...');
-    // gemini-3.1-flash-image で画像を生成
-    const imageResponse = await ai.interactions.create({
-      model: 'gemini-3.1-flash-image',
-      input: [
-        { type: 'text', text: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, highly detailed, blog header banner` }
-      ],
-      response_format: {
-        type: 'image',
-        aspect_ratio: '16:9',
-        image_size: '2K'
+    console.log("Attempting to generate image via Imagen 3 (imagen-3.0-generate-002)...");
+    const imageResponse = await ai.models.generateImages({
+      model: "imagen-3.0-generate-002",
+      prompt: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, 8k, architectural digest`,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: "16:9",
+        outputMimeType: "image/jpeg"
       }
     });
 
-    if (imageResponse.output_image && imageResponse.output_image.data) {
-      const base64Image = imageResponse.output_image.data;
+    if (imageResponse && imageResponse.generatedImages && imageResponse.generatedImages.length > 0) {
+      const base64Image = imageResponse.generatedImages[0].image.imageBytes;
+      console.log("Successfully generated image via Imagen 3!");
       return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
     }
     throw new Error('Image data not found in response');
