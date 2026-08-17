@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import {
   FREE_GENERATIONS,
@@ -22,6 +23,7 @@ const LOADING_STATUSES = [
 ];
 
 export default function Studio() {
+  const { user, openAuthModal, updateUserCredits } = useAuth();
   // Input states
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [selectedHouseType, setSelectedHouseType] = useState<string | null>('japanese');
@@ -278,9 +280,17 @@ export default function Studio() {
     }
 
     // Limit check for non-BYOK and non-pro users
-    if (!byokMode && userPlan !== 'pro' && freeCount <= 0) {
-      setShowUpgradeModal(true);
-      return;
+    if (user) {
+      if (user.plan === 'free' && user.credits <= 0) {
+        setErrorMsg('所持している生成クレジット（残り0回）がなくなりました。クレジットの追加購入をご検討ください。');
+        setShowUpgradeModal(true);
+        return;
+      }
+    } else {
+      if (!byokMode && userPlan !== 'pro' && freeCount <= 0) {
+        openAuthModal();
+        return;
+      }
     }
 
     setIsLoading(true);
