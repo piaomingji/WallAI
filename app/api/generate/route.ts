@@ -4,6 +4,7 @@ import { HOUSE_TYPES, PAINT_COLORS } from '@/lib/constants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@vercel/kv';
+import { getCurrentUser, deductUserCredit } from '@/lib/auth';
 
 const kv = createClient({
   url: process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL || "",
@@ -102,6 +103,40 @@ export async function POST(req: NextRequest) {
     }
 
     const houseType = HOUSE_TYPES.find((h) => h.id === houseTypeId) || HOUSE_TYPES[0];
+
+
+    const currentUser = await getCurrentUser();
+    let remainingCredits: number | undefined = undefined;
+
+    if (currentUser) {
+      const { success, remainingCredits: updatedCredits } = await deductUserCredit(currentUser.id);
+      if (!success) {
+        return NextResponse.json(
+          {
+            error: "残りの生成クレジットがありません。有料プランへのご加入、または追加クレジットのご購入をお願いいたします。",
+            requiresUpgrade: true,
+            remainingCredits: 0,
+          },
+          { status: 403 }
+        );
+      }
+      remainingCredits = updatedCredits;
+    } else {
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
+      const key = `wall-ai:ip:${ip}`;
+      const count = (await kv.get<number>(key)) || 0;
+      if (count >= 3) {
+        return NextResponse.json(
+          {
+            error: "無料お試しの制限回数（3回）を超過しました。無料会員登録をすると+3回分のクレジットを獲得できます！",
+            requiresAuth: true,
+            requiresUpgrade: true,
+          },
+          { status: 403 }
+        );
+      }
+      await kv.set(key, count + 1);
+    }
 
     const ip =
       req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||

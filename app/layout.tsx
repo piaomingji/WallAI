@@ -45,6 +45,8 @@ export const metadata: Metadata = {
 
 import PwaRegister from "@/components/PwaRegister";
 import { Analytics } from "@vercel/analytics/next";
+import { AuthProvider } from "@/context/AuthContext";
+import { AuthModal } from "@/components/AuthModal";
 
 export default function RootLayout({
   children,
@@ -54,7 +56,10 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`h-full antialiased ${notoSerif.variable}`}>
       <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
-        {children}
+        <AuthProvider>
+          {children}
+          <AuthModal />
+        </AuthProvider>
         <PwaRegister />
         <Analytics />
       </body>

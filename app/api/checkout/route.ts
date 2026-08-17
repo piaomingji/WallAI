@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getCurrentUser, addUserCredits } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    // Sanitize headers to prevent ByteString conversion crashes in any outgoing runtime fetch calls
-    try {
-      const keys = Array.from(req.headers.keys());
-      for (const key of keys) {
-        const val = req.headers.get(key) || '';
-        let hasNonAscii = false;
-        for (let i = 0; i < val.length; i++) {
-          if (val.charCodeAt(i) > 255) {
-            hasNonAscii = true;
-            break;
-          }
-        }
-        if (hasNonAscii) {
-          req.headers.set(key, encodeURIComponent(val));
-        }
-      }
-    } catch (e) {
-      console.error('Error sanitizing headers:', e);
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "決済をご利用いただくにはログインが必要です。", requiresAuth: true },
+        { status: 401 }
+      );
     }
 
     const { planId } = await req.json();
@@ -30,9 +19,13 @@ export async function POST(req: NextRequest) {
 
     const stripeKey = process.env.STRIPE_SECRET_KEY;
 
-    // Stripe Secret Key 가 설정되지 않은 경우 모크(시뮬레이션) 결제로 우회
     if (!stripeKey || stripeKey === 'your_stripe_secret_key_here') {
       console.warn('STRIPE_SECRET_KEY is not configured. Running in Mock Mode.');
+      if (planId === 'quota') {
+        await addUserCredits(user.id, 20);
+      } else if (planId === 'pro' || planId === 'business') {
+        await addUserCredits(user.id, 100, 'pro');
+      }
       return NextResponse.json({
         url: `${origin}/checkout-success?mock=true&plan=${planId}`,
       });
@@ -43,9 +36,10 @@ export async function POST(req: NextRequest) {
     let session;
 
     if (planId === 'pro') {
-      // Pro Plan: Monthly Subscription
       session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
+        client_reference_id: user.id,
+        customer_email: user.email,
         line_items: [
           {
             price_data: {
@@ -65,9 +59,10 @@ export async function POST(req: NextRequest) {
         cancel_url: `${origin}/#pricing`,
       });
     } else if (planId === 'business') {
-      // Business Plan: Monthly Subscription (5 users, 500 generations/day)
       session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
+        client_reference_id: user.id,
+        customer_email: user.email,
         line_items: [
           {
             price_data: {
@@ -87,9 +82,10 @@ export async function POST(req: NextRequest) {
         cancel_url: `${origin}/#pricing`,
       });
     } else if (planId === 'quota') {
-      // Quota Pack: One-time payment (20 generations)
       session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
+        client_reference_id: user.id,
+        customer_email: user.email,
         line_items: [
           {
             price_data: {
@@ -112,7 +108,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ url: session.url });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('Stripe Checkout Session Error:', error);
     let errMsg = 'Unknown Server Error';
