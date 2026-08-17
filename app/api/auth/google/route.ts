@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         name: payload.name || email.split("@")[0],
         avatarUrl: payload.picture,
         plan: "free",
-        credits: 5,
+        credits: 10,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

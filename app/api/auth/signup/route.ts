@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       email: email.trim().toLowerCase(),
       name: name?.trim() || email.split("@")[0],
       plan: "free",
-      credits: 5,
+      credits: 10,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

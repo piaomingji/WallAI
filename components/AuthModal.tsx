@@ -163,7 +163,7 @@ export const AuthModal: React.FC = () => {
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {isSignUp
-              ? "会員登録で外壁シミュレーション無料試行+5回分プレゼント！"
+              ? "無料お試し5回＋会員登録5回＝合計10回分プレゼント！"
               : "ログインして購入プラン・カラー提案履歴を復元"}
           </p>
         </div>
@@ -177,7 +177,7 @@ export const AuthModal: React.FC = () => {
             <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                <span>新規登録で無料生成クレジット +5回分プレゼント</span>
+                <span>無料お試し5回 ＋ 会員登録特典5回 ＝ 合計10回分プレゼント</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
