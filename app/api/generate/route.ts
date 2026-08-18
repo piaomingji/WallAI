@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     } else {
       const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
       const key = `wall-ai:ip:${ip}`;
-      const count = (await kv.get<number>(key)) || 0;
+      const count = await safeKvGet(key);
       if (count >= 3) {
         return NextResponse.json(
           {
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      await kv.set(key, count + 1);
+      await safeKvSet(key, count + 1);
     }
 
     const ip =
