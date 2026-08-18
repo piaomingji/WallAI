@@ -183,8 +183,10 @@ export async function verifyUserPassword(userId: string, password: string): Prom
 }
 
 export async function deductUserCredit(userId?: string): Promise<{ success: boolean; remainingCredits: number }> {
-  const user = await getCurrentUser();
-  if (userId && !user) console.log(userId);
+  let user = await getCurrentUser();
+  if (!user && userId) {
+    user = await getUserById(userId);
+  }
   if (!user) return { success: false, remainingCredits: 0 };
 
   if (user.plan === "pro" || user.plan === "unlimited") {
