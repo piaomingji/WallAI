@@ -167,11 +167,7 @@ export async function POST(req: NextRequest) {
       await incrementIpQuotaCookie();
     }
 
-    const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      req.headers.get('x-real-ip') ||
-      '127.0.0.1';
-
+    // ip defined above
     // API 키 결정 (BYOK 우선, 없으면 서버 환경변수 키)
     const apiKey = (typeof byokKey === 'string' && byokKey.trim()) || process.env.GEMINI_API_KEY;
 
