@@ -19,9 +19,12 @@ interface AuthContextType {
   openAuthModal: () => void;
   closeAuthModal: () => void;
   refreshUser: () => Promise<void>;
+  setUserState: (user: UserProfile | null) => void;
   updateUserCredits: (credits: number) => void;
   logout: () => Promise<void>;
 }
+
+const STORAGE_KEY = "wall_ai_user_session";
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -30,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   openAuthModal: () => {},
   closeAuthModal: () => {},
   refreshUser: async () => {},
+  setUserState: () => {},
   updateUserCredits: () => {},
   logout: async () => {},
 });
@@ -39,21 +43,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
+  // Load initial state from localStorage if available
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id && parsed.email) {
+          setUser(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const setUserState = useCallback((newUser: UserProfile | null) => {
+    setUser(newUser);
+    try {
+      if (newUser) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {}
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user || null);
-      } else {
-        setUser(null);
+        if (data.user) {
+          setUserState(data.user);
+        } else {
+          // Keep cached user if server returns null but cached exists (e.g. cookie delay)
+          const cached = localStorage.getItem(STORAGE_KEY);
+          if (!cached) {
+            setUser(null);
+          }
+        }
       }
-    } catch {
-      setUser(null);
-    } finally {
+    } catch {} finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUserState]);
 
   useEffect(() => {
     refreshUser();
@@ -63,16 +95,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
 
   const updateUserCredits = useCallback((newCredits: number) => {
-    setUser((prev) => (prev ? { ...prev, credits: newCredits } : null));
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, credits: newCredits };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
   }, []);
 
   const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      setUser(null);
+      setUserState(null);
     }
-  }, []);
+  }, [setUserState]);
 
   return (
     <AuthContext.Provider
@@ -83,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         openAuthModal,
         closeAuthModal,
         refreshUser,
+        setUserState,
         updateUserCredits,
         logout,
       }}

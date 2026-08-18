@@ -19,7 +19,7 @@ declare global {
 }
 
 export const AuthModal: React.FC = () => {
-  const { isAuthModalOpen, closeAuthModal, refreshUser } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, refreshUser, setUserState } = useAuth();
   const [isSignUp, setIsSignUp] = useState<boolean>(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +40,7 @@ export const AuthModal: React.FC = () => {
       if (!res.ok) {
         throw new Error(data.error || "Google認証に失敗しました。");
       }
+      if (data.user) setUserState(data.user);
       await refreshUser();
       closeAuthModal();
     } catch (err: unknown) {
@@ -47,7 +48,7 @@ export const AuthModal: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [refreshUser, closeAuthModal]);
+  }, [refreshUser, closeAuthModal, setUserState]);
 
   useEffect(() => {
     if (!isAuthModalOpen) return;
@@ -117,7 +118,7 @@ export const AuthModal: React.FC = () => {
       if (!res.ok) {
         throw new Error(data.error || "認証処理に失敗しました。");
       }
-
+      if (data.user) setUserState(data.user);
       await refreshUser();
       closeAuthModal();
     } catch (err: unknown) {
