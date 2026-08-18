@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
       userPlan,
       customSampleColor,
       sessionId,
+      quotaRemaining,
     } = await req.json();
 
     if (!image || typeof image !== 'string') {
@@ -125,10 +126,11 @@ export async function POST(req: NextRequest) {
       const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
       const key = `wall-ai:ip:${ip}`;
       const count = await safeKvGet(key);
-      if (count >= 3) {
+      const isKvAvailable = !!process.env.KV_REST_API_URL;
+      if ((isKvAvailable && count >= 5) || (!isKvAvailable && typeof quotaRemaining === "number" && quotaRemaining <= 0)) {
         return NextResponse.json(
           {
-            error: "無料お試しの制限回数（3回）を超過しました。無料会員登録をすると+3回分のクレジットを獲得できます！",
+            error: "無料お試しの制限回数（5回）を超過しました。無料会員登録をすると+5回分（計10回）のクレジットを獲得できます！",
             requiresAuth: true,
             requiresUpgrade: true,
           },

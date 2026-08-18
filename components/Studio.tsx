@@ -312,7 +312,7 @@ export default function Studio() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'omit',
+        credentials: 'same-origin',
         body: JSON.stringify({
           image: uploadedImage,
           houseTypeId: selectedHouseType || 'custom',
@@ -1054,8 +1054,8 @@ export default function Studio() {
                       <span className="text-clay font-bold animate-pulse">PROプラン（使い放題）</span>
                     ) : userPlan === 'business' ? (
                       <span className="text-clay-deep font-bold animate-pulse">法人プラン（使い放題）</span>
-                    ) : userPlan === 'quota' ? (
-                      <span className="text-ink font-bold text-ink-strong">追加プラン（残り {freeCount}回）</span>
+                    ) : user ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">会員特典クレジット（残り {user.credits}回）</span>
                     ) : (
                       <span className="text-ink-soft">無料体験（残り {freeCount}回）</span>
                     )}
