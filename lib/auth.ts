@@ -125,6 +125,7 @@ export async function saveUser(user: UserProfile, passwordHash?: string): Promis
     memoryUserDb.set(user.id, { user, passwordHash: passwordHash || "" });
     memoryUserByEmail.set(user.email.toLowerCase(), user.id);
   }
+  await saveRegisteredUserToCookie(user);
 }
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
@@ -147,13 +148,17 @@ export async function getUserByEmail(email: string): Promise<UserProfile | null>
     let userId: string | null = null;
 
     if (process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL) {
-      userId = await kv.get<string>(`wall-ai:user-email:${normalizedEmail}`);
+      userId = await kv.get<string>(`wallai:user-email:${normalizedEmail}`);
     } else {
       userId = memoryUserByEmail.get(normalizedEmail) || null;
     }
 
-    if (!userId) return null;
-    return await getUserById(userId);
+    if (userId) {
+      const user = await getUserById(userId);
+      if (user) return user;
+    }
+
+    return await getRegisteredUserFromCookie(normalizedEmail);
   } catch {
     return null;
   }
@@ -214,4 +219,94 @@ export async function addUserCredits(userId: string, count: number, setPlan?: "f
 
   await saveUser(user);
   return user;
+}
+
+
+const USERS_COOKIE_NAME = "wall_ai_registered_users";
+const IP_QUOTA_COOKIE = "wall_ai_ip_quota";
+
+export async function getRegisteredUserFromCookie(email: string): Promise<UserProfile | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(USERS_COOKIE_NAME)?.value;
+    if (!token) return null;
+    const verified = await verifySessionToken(token);
+    if (!verified || typeof verified !== "object") return null;
+    const usersMap = (verified.users as Record<string, UserProfile>) || {};
+    const normalizedEmail = email.toLowerCase().trim();
+    return usersMap[normalizedEmail] || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveRegisteredUserToCookie(user: UserProfile): Promise<void> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(USERS_COOKIE_NAME)?.value;
+    let usersMap: Record<string, UserProfile> = {};
+    if (token) {
+      const verified = await verifySessionToken(token);
+      if (verified && typeof verified === "object" && verified.users) {
+        usersMap = (verified.users as Record<string, UserProfile>) || {};
+      }
+    }
+    const normalizedEmail = user.email.toLowerCase().trim();
+    usersMap[normalizedEmail] = user;
+
+    const newToken = await new SignJWT({ users: usersMap })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("365d")
+      .sign(JWT_SECRET);
+
+    cookieStore.set(USERS_COOKIE_NAME, newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 365 * 24 * 60 * 60,
+    });
+  } catch (err) {
+    console.warn("Failed to save registered user cookie:", err);
+  }
+}
+
+export async function getIpQuotaFromCookie(): Promise<number> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(IP_QUOTA_COOKIE)?.value;
+    if (!token) return 0;
+    const verified = await verifySessionToken(token);
+    if (verified && typeof verified.count === "number") {
+      return verified.count;
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function incrementIpQuotaCookie(): Promise<number> {
+  try {
+    const current = await getIpQuotaFromCookie();
+    const newCount = current + 1;
+    const cookieStore = await cookies();
+    const newToken = await new SignJWT({ count: newCount })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("365d")
+      .sign(JWT_SECRET);
+
+    cookieStore.set(IP_QUOTA_COOKIE, newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 365 * 24 * 60 * 60,
+    });
+    return newCount;
+  } catch {
+    return 1;
+  }
 }

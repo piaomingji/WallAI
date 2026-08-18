@@ -4,7 +4,7 @@ import { HOUSE_TYPES, PAINT_COLORS } from '@/lib/constants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@vercel/kv';
-import { getCurrentUser, deductUserCredit } from '@/lib/auth';
+import { getCurrentUser, deductUserCredit, getIpQuotaFromCookie, incrementIpQuotaCookie } from '@/lib/auth';
 
 const kv = createClient({
   url: process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL || "",
@@ -106,10 +106,33 @@ export async function POST(req: NextRequest) {
     const houseType = HOUSE_TYPES.find((h) => h.id === houseTypeId) || HOUSE_TYPES[0];
 
 
-    const currentUser = await getCurrentUser();
+        const currentUser = await getCurrentUser();
     let remainingCredits: number | undefined = undefined;
+    const ipQuotaCount = await getIpQuotaFromCookie();
 
     if (currentUser) {
+      if (currentUser.plan === "free" && currentUser.credits <= 0) {
+        return NextResponse.json(
+          {
+            error: "残りの生成クレジットがありません。有料プランへのご加入、または追加クレジットのご購入をお願いいたします。",
+            requiresUpgrade: true,
+            remainingCredits: 0,
+          },
+          { status: 403 }
+        );
+      }
+
+      if (currentUser.plan === "free" && ipQuotaCount >= 10) {
+        return NextResponse.json(
+          {
+            error: "このIPアドレス（端末）からの無料利用枠（合計10回）を超過しました。有料プラン（Proプラン）へのお申し込みが必要です。",
+            requiresUpgrade: true,
+            remainingCredits: 0,
+          },
+          { status: 403 }
+        );
+      }
+
       const { success, remainingCredits: updatedCredits } = await deductUserCredit(currentUser.id);
       if (!success) {
         return NextResponse.json(
@@ -121,16 +144,18 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
+      await incrementIpQuotaCookie();
       remainingCredits = updatedCredits;
     } else {
       const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
-      const key = `wall-ai:ip:${ip}`;
+      const key = `wall_ai:ip:${ip}`;
       const count = await safeKvGet(key);
       const isKvAvailable = !!process.env.KV_REST_API_URL;
-      if ((isKvAvailable && count >= 5) || (!isKvAvailable && typeof quotaRemaining === "number" && quotaRemaining <= 0)) {
+      
+      if (ipQuotaCount >= 5 || (isKvAvailable && count >= 5) || (!isKvAvailable && typeof quotaRemaining === "number" && quotaRemaining <= 0)) {
         return NextResponse.json(
           {
-            error: "無料お試しの制限回数（5回）を超過しました。無料会員登録をすると+5回分（計10回）のクレジットを獲得できます！",
+            error: "この端末（IP）からの無料お試しの制限回数（5回）を超過しました。無料会員登録をするとさらにクレジットを獲得できます！",
             requiresAuth: true,
             requiresUpgrade: true,
           },
@@ -138,6 +163,7 @@ export async function POST(req: NextRequest) {
         );
       }
       await safeKvSet(key, count + 1);
+      await incrementIpQuotaCookie();
     }
 
     const ip =
