@@ -350,7 +350,10 @@ export default function Studio() {
         document.getElementById('preview-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
-      if (!byokMode && userPlan !== 'pro') {
+      if (typeof data.remainingCredits === 'number') {
+        updateUserCredits(data.remainingCredits);
+      }
+      if (!user && !byokMode && userPlan !== 'pro') {
         const nextCount = Math.max(0, freeCount - 1);
         setFreeCountRaw(String(nextCount));
         window.dispatchEvent(new Event('storage'));

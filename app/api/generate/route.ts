@@ -517,7 +517,7 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
       }
     }
 
-    return NextResponse.json({ image: imageBase64 });
+    return NextResponse.json({ image: imageBase64, remainingCredits });
   } catch (error) {
     console.error('Gemini Generate API Error:', error);
     const errMsg = error instanceof Error ? error.message : '';
