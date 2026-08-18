@@ -42,6 +42,7 @@ export async function createSessionToken(user: UserProfile): Promise<string> {
     email: user.email,
     name: user.name,
     plan: user.plan,
+    credits: user.credits,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -68,7 +69,18 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     if (!payload || !payload.sub) return null;
 
     const userId = payload.sub as string;
-    return await getUserById(userId);
+    const kvUser = await getUserById(userId);
+    if (kvUser) return kvUser;
+
+    return {
+      id: userId,
+      email: (payload.email as string) || "",
+      name: (payload.name as string) || "",
+      plan: (payload.plan as "free" | "pro" | "unlimited") || "free",
+      credits: typeof payload.credits === "number" ? payload.credits : 10,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   } catch {
     return null;
   }
@@ -165,8 +177,9 @@ export async function verifyUserPassword(userId: string, password: string): Prom
   }
 }
 
-export async function deductUserCredit(userId: string): Promise<{ success: boolean; remainingCredits: number }> {
-  const user = await getUserById(userId);
+export async function deductUserCredit(userId?: string): Promise<{ success: boolean; remainingCredits: number }> {
+  const user = await getCurrentUser();
+  if (userId && !user) console.log(userId);
   if (!user) return { success: false, remainingCredits: 0 };
 
   if (user.plan === "pro" || user.plan === "unlimited") {
@@ -180,6 +193,13 @@ export async function deductUserCredit(userId: string): Promise<{ success: boole
   user.credits = Math.max(0, user.credits - 1);
   user.updatedAt = new Date().toISOString();
   await saveUser(user);
+
+  try {
+    const newToken = await createSessionToken(user);
+    await setSessionCookie(newToken);
+  } catch (err) {
+    console.warn("Failed to update session cookie on deduct:", err);
+  }
 
   return { success: true, remainingCredits: user.credits };
 }

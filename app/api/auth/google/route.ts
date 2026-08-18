@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const { credential } = await req.json();
+    const { credential, guestQuotaRemaining } = await req.json();
 
     if (!credential) {
       return NextResponse.json({ error: "Google認証情報が見つかりません。" }, { status: 400 });
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         name: payload.name || email.split("@")[0],
         avatarUrl: payload.picture,
         plan: "free",
-        credits: 10,
+        credits: typeof guestQuotaRemaining === "number" ? Math.min(10, Math.max(0, guestQuotaRemaining) + 5) : 10,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
