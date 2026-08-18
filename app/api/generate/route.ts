@@ -445,31 +445,35 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 
     parts.push({ text: instruction });
 
-    const ai = new GoogleGenAI({ apiKey });
-    const res = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-image-preview',
-      contents: [
-        {
-          role: 'user',
-          parts,
-        },
-      ],
-      config: {
-        temperature: 0.1,
-      },
-    });
+    const ai = new GoogleGenAI({ apiKey, vertexai: false });
+    
+    // Prepare input array for interactions API
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inputs: any[] = [
+      { type: "text", text: instruction },
+      { type: "image", data: base64Image, mime_type: mimeType }
+    ];
 
-    const candidate = res.candidates?.[0];
-
-    if (candidate?.finishReason === 'SAFETY') {
-      return NextResponse.json(
-        { error: '安全ポリシーにより画像の生成がブロックされました。別の画像を使用してください。' },
-        { status: 400 }
-      );
+    if (customSampleColor && customSampleColor.base64) {
+      const sampleMatch = customSampleColor.base64.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (sampleMatch) {
+        inputs.push({
+          type: "image",
+          data: sampleMatch[2],
+          mime_type: sampleMatch[1]
+        });
+      }
     }
 
-    const part = candidate?.content?.parts?.find((p) => p.inlineData);
-    const imageBase64 = part?.inlineData?.data;
+    const interaction = await ai.interactions.create({
+      model: "gemini-3.1-flash-image",
+      input: inputs,
+      response_format: {
+        type: "image"
+      }
+    });
+
+    const imageBase64 = interaction?.output_image?.data;
 
     if (!imageBase64) {
       return NextResponse.json(
