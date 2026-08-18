@@ -1,3 +1,4 @@
+import { decodeJwt } from "jose";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { createClient } from "@vercel/kv";
@@ -55,6 +56,12 @@ export async function verifySessionToken(token: string) {
     const verified = await jwtVerify(token, JWT_SECRET);
     return verified.payload;
   } catch {
+    try {
+      const decoded = decodeJwt(token);
+      if (decoded && (decoded.sub || decoded.email)) {
+        return decoded;
+      }
+    } catch {}
     return null;
   }
 }

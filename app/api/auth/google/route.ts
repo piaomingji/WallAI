@@ -6,6 +6,7 @@ import {
   saveUser,
   createSessionToken,
   setSessionCookie,
+  saveRegisteredUserToCookie,
 } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
 
     const token = await createSessionToken(user);
     await setSessionCookie(token);
+    await saveRegisteredUserToCookie(user);
 
     return NextResponse.json({ user, success: true });
   } catch (e) {
