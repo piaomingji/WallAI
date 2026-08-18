@@ -312,3 +312,25 @@ export async function incrementIpQuotaCookie(): Promise<number> {
     return 1;
   }
 }
+
+
+export async function safeKvGet(key: string): Promise<number> {
+  try {
+    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
+    const val = await kv.get<number>(key);
+    return typeof val === "number" ? val : 0;
+  } catch (e) {
+    console.warn("KV get failed:", e);
+    return 0;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function safeKvSet(key: string, value: number, opts?: any) {
+  try {
+    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return;
+    await kv.set(key, value, opts);
+  } catch (e) {
+    console.warn("KV set failed:", e);
+  }
+}

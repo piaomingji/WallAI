@@ -1,3 +1,4 @@
+import { safeKvGet, getIpQuotaFromCookie } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { decodeJwt } from "jose";
 import {
@@ -32,6 +33,14 @@ export async function POST(req: NextRequest) {
     let user = await getUserByEmail(email);
 
     if (!user) {
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
+      const ipKey = `wall_ai:ip:${ip}`;
+      const currentIpCount = await safeKvGet(ipKey);
+      const ipQuotaCount = await getIpQuotaFromCookie();
+      const effectiveIpCount = Math.max(currentIpCount, ipQuotaCount);
+
+      const initialCredits = Math.max(0, Math.min(10 - effectiveIpCount, typeof guestQuotaRemaining === "number" ? Math.max(0, guestQuotaRemaining) + 5 : 10));
+
       const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       user = {
         id: userId,
@@ -39,7 +48,7 @@ export async function POST(req: NextRequest) {
         name: payload.name || email.split("@")[0],
         avatarUrl: payload.picture,
         plan: "free",
-        credits: typeof guestQuotaRemaining === "number" ? Math.min(10, Math.max(0, guestQuotaRemaining) + 5) : 10,
+        credits: initialCredits,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
