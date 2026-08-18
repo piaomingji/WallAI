@@ -52,11 +52,7 @@ export const AuthModal: React.FC = () => {
   useEffect(() => {
     if (!isAuthModalOpen) return;
 
-    const REAL_GOOGLE_CLIENT_ID = "729533279786-55pmrngc4lurkcv4dluf048v7es7uiua.apps.googleusercontent.com";
-    const envClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    const clientId = (envClientId && !envClientId.includes("demo") && envClientId.startsWith("729533279786"))
-      ? envClientId
-      : REAL_GOOGLE_CLIENT_ID;
+    const clientId = "729533279786-55pmrngc4lurkcv4dluf048v7es7uiua.apps.googleusercontent.com";
 
     const initGoogle = () => {
       if (window.google?.accounts?.id) {
