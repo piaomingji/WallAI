@@ -128,20 +128,11 @@ export const AuthModal: React.FC = () => {
   };
 
   const handleSimulatedGoogleClick = () => {
-    const dummyEmail = prompt("Googleアカウントのメールアドレスを入力してください:");
-    if (!dummyEmail || !dummyEmail.includes("@")) return;
-
-    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-    const payload = btoa(
-      JSON.stringify({
-        email: dummyEmail.trim().toLowerCase(),
-        name: dummyEmail.split("@")[0],
-        picture: "https://lh3.googleusercontent.com/a/default-user",
-        sub: `google_${Date.now()}`,
-      })
-    );
-    const mockCredential = `${header}.${payload}.mockSignature`;
-    handleGoogleCredential(mockCredential);
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    } else {
+      setError("Google認証を準備中です。上の「Googleで続ける」ボタンをお使いいただくか、ページを更新してお試しください。");
+    }
   };
 
   return (
