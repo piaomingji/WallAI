@@ -97,6 +97,14 @@ export async function POST(req: NextRequest) {
     const effectiveIpCount = Math.max(ipQuotaCount, currentIpCount);
 
     if (currentUser) {
+      // The account's own counter matters as much as the device's: signing in with a second Google
+      // account on the same device must not hand out a fresh allowance, and the same account used
+      // from a second device must not either. Whichever count is higher is the one that applies.
+      const accountCount = currentUser.email
+        ? await safeKvGet(GOOGLE_QUOTA_KEY(currentUser.email))
+        : 0;
+      const effectiveCount = Math.max(effectiveIpCount, accountCount);
+
       if (currentUser.plan === "free" && currentUser.credits <= 0) {
         return NextResponse.json(
           {
@@ -108,7 +116,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (currentUser.plan === "free" && effectiveIpCount >= FREE_TOTAL_CREDITS) {
+      if (currentUser.plan === "free" && effectiveCount >= FREE_TOTAL_CREDITS) {
         return NextResponse.json(
           {
             error: "このIPアドレス（端末）からの無料利用枠（合計10回）を超過しました。有料プラン（Proプラン）へのお申し込みが必要です。",
@@ -251,20 +259,11 @@ export async function POST(req: NextRequest) {
     }
 
     const isPremium = !!isPremiumUser; // Check premium status sent from client
-    if (isDemoMode && !isPremium) {
-      const ipKey = IP_QUOTA_KEY(ip);
-      const googleKey = finalUserIdentifier ? GOOGLE_QUOTA_KEY(finalUserIdentifier) : null;
 
-      const currentIpCount = await safeKvGet(ipKey);
-      const currentGoogleCount = googleKey ? (await safeKvGet(googleKey)) : 0;
-
-      if (currentIpCount >= 5 || currentGoogleCount >= 5) {
-        return NextResponse.json(
-          { error: '無料体験枠（通算5回）をすべて消費しました。引き続きご利用いただくには有料プランをご検討ください。' },
-          { status: 429 }
-        );
-      }
-    }
+    // The allowance is checked once, above: 10 for a signed-in account, 5 for a guest. A second
+    // check used to sit here that stopped everyone at 5, so a member holding 8 credits was refused
+    // -- and it ran after the credit had already been deducted, costing a generation that never
+    // arrived.
 
     let mimeType = 'image/jpeg';
     let base64Image = image;
