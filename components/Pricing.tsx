@@ -98,7 +98,10 @@ export default function Pricing() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'omit',
+        // The session cookie has to travel with this request: the server needs to know whose
+        // account is being paid for. It said 'omit', which stripped the cookie, so checkout was
+        // refused as "please sign in" no matter who was signed in.
+        credentials: 'same-origin',
         body: JSON.stringify({ planId }),
       });
 
