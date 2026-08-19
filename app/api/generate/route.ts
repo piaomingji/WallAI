@@ -116,7 +116,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (currentUser.plan === "free" && effectiveCount >= FREE_TOTAL_CREDITS) {
+      // The device cap only guards the free allowance. Someone who has bought credits is past it.
+      if (currentUser.plan === "free" && !currentUser.hasPurchased && effectiveCount >= FREE_TOTAL_CREDITS) {
         return NextResponse.json(
           {
             error: "このIPアドレス（端末）からの無料利用枠（合計10回）を超過しました。有料プラン（Proプラン）へのお申し込みが必要です。",

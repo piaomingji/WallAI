@@ -84,11 +84,13 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        // Remember which subscription belongs to whom, so a later cancellation can be applied.
+        // Mark the account as having paid, which lifts the device-level free cap, and remember
+        // which subscription belongs to whom so a later cancellation can be applied.
+        updated.hasPurchased = true;
         if (typeof session.subscription === "string") {
           updated.stripeSubscriptionId = session.subscription;
-          await saveUser(updated);
         }
+        await saveUser(updated);
 
         console.log(`Applied ${planId} to ${userId}: +${grant.credits} credits.`);
         break;

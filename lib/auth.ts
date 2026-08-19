@@ -32,6 +32,14 @@ export interface UserProfile {
   plan: "free" | "pro" | "unlimited";
   /** Set by the Stripe webhook, so a later cancellation can be matched back to this account. */
   stripeSubscriptionId?: string;
+  /**
+   * True once this account has paid for anything.
+   *
+   * The device-level cap exists to stop one person collecting the free allowance over and over with
+   * new accounts. It has no business applying to someone who has bought credits -- they were shut
+   * out of what they had paid for.
+   */
+  hasPurchased?: boolean;
   credits: number;
   stripeCustomerId?: string;
   createdAt: string;
