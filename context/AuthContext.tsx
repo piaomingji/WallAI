@@ -75,11 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.user) {
           setUserState(data.user);
         } else {
-          // Keep cached user if server returns null but cached exists (e.g. cookie delay)
-          const cached = localStorage.getItem(STORAGE_KEY);
-          if (!cached) {
-            setUser(null);
-          }
+          // The server is the only authority on whether someone is signed in. This used to keep
+          // showing the cached account when the server said there was no session, so a person whose
+          // session had expired or been rejected still saw their name and a credit balance in the
+          // header -- a number that could not change, because nothing they did was being counted
+          // against an account. Better to show them signed out, which is the truth, and let them
+          // sign in again.
+          setUserState(null);
         }
       }
     } catch {} finally {

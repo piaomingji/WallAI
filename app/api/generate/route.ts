@@ -503,13 +503,9 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
     }
 
     if (isDemoMode) {
-      if (!isPremium) {
-        // The count is kept for a year rather than expiring after 72 hours. The free allowance is a
-        // total, not a rolling window: letting it lapse every three days handed the same device a
-        // fresh set of free generations twice a week.
-        await bumpCounter(IP_QUOTA_KEY(ip));
-        if (finalUserIdentifier) await bumpCounter(GOOGLE_QUOTA_KEY(finalUserIdentifier));
-      }
+      // Counting happens once, just above. It used to be repeated here as well, which charged two
+      // uses for every generation. The count is also kept for a year now rather than expiring after
+      // 72 hours: the free allowance is a total, not a rolling window.
 
       // PRO 회원 생성 기록 업데이트 (누적 횟수 증가 및 최종 생성 시각 업데이트)
       if (isProUser) {
