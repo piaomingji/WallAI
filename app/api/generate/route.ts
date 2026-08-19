@@ -488,6 +488,20 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
       );
     }
 
+    // Now that there is an image to hand back, record the use: deduct the credit, count it against
+    // both the connection and the account, and advance the cookie. Nothing above this point costs
+    // the person anything.
+    if (currentUser) {
+      const { success, remainingCredits: updatedCredits } = await deductUserCredit(currentUser.id);
+      if (success) remainingCredits = updatedCredits;
+      await bumpCounter(IP_QUOTA_KEY(ip));
+      if (currentUser.email) await bumpCounter(GOOGLE_QUOTA_KEY(currentUser.email));
+      await incrementIpQuotaCookie();
+    } else {
+      await bumpCounter(IP_QUOTA_KEY(ip));
+      await incrementIpQuotaCookie();
+    }
+
     if (isDemoMode) {
       if (!isPremium) {
         // The count is kept for a year rather than expiring after 72 hours. The free allowance is a

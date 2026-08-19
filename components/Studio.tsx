@@ -330,7 +330,21 @@ export default function Studio() {
         }),
       });
 
-      const data = await res.json();
+      // A failed request does not always carry JSON. When a generation runs past the platform's
+      // time limit the reply is Vercel's own plain-text notice, and parsing it threw
+      // "Unexpected token 'A'" at the person instead of telling them what happened.
+      const raw = await res.text();
+      let data: { error?: string; image?: string; remainingCredits?: number } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = {
+          error:
+            res.status === 504 || /An error occurred/i.test(raw)
+              ? '生成に時間がかかりすぎたため中断されました。写真のサイズを小さくするか、しばらく待ってから再度お試しください。（この回のクレジットは消費されません）'
+              : 'サーバーから予期しない応答が返りました。時間をおいて再度お試しください。',
+        };
+      }
       if (!res.ok) {
         if (res.status === 403 && data.error === 'MULTIPLE_SESSIONS_DETECTED') {
           localStorage.setItem('wallai_user_plan', 'free');
