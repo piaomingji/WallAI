@@ -127,21 +127,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { success, remainingCredits: updatedCredits } = await deductUserCredit(currentUser.id);
-      if (!success) {
-        return NextResponse.json(
-          {
-            error: "残りの生成クレジットがありません。有料プランへのご加入、または追加クレジットのご購入をお願いいたします。",
-            requiresUpgrade: true,
-            remainingCredits: 0,
-          },
-          { status: 403 }
-        );
-      }
-      await bumpCounter(ipKey);
-      if (currentUser.email) await bumpCounter(GOOGLE_QUOTA_KEY(currentUser.email));
-      await incrementIpQuotaCookie();
-      remainingCredits = updatedCredits;
+      // The credit is taken after the image exists, not here. Charging up front meant a generation
+      // that timed out or was refused still cost the person a credit, with nothing to show for it --
+      // and when the platform kills the request there is no code left running to give it back.
+      remainingCredits = currentUser.credits;
     } else {
       if (effectiveIpCount >= FREE_GUEST_CREDITS) {
         return NextResponse.json(
@@ -153,8 +142,6 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      await bumpCounter(ipKey);
-      await incrementIpQuotaCookie();
     }
 
     // ip defined above
