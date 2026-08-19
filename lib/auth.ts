@@ -30,6 +30,8 @@ export interface UserProfile {
   name: string;
   avatarUrl?: string;
   plan: "free" | "pro" | "unlimited";
+  /** Set by the Stripe webhook, so a later cancellation can be matched back to this account. */
+  stripeSubscriptionId?: string;
   credits: number;
   stripeCustomerId?: string;
   createdAt: string;

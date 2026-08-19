@@ -10,36 +10,71 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [planName, setPlanName] = useState('');
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
+    // The plan is granted by Stripe's webhook, on the server. This page only waits for that to
+    // land and then asks the server what the account looks like now.
+    //
+    // It used to write the plan into local storage straight from the query string, which meant two
+    // things at once: opening this address without paying made the browser believe it had a paid
+    // plan, and actually paying changed nothing the server knew about -- so a real customer was
+    // refused as soon as their free allowance ran out. The browser is not a place to record a
+    // purchase.
     const plan = searchParams.get('plan');
+    setPlanName(
+      plan === 'pro'
+        ? 'Proプラン (月額サブスクリプション)'
+        : plan === 'business'
+        ? '法人プラン (月額サブスクリプション)'
+        : plan === 'quota'
+        ? '生成枠 20回追加パック'
+        : 'ご購入'
+    );
 
-    // ローカルストレージの状態を更新
-    const currentFreeGenerationsRaw = localStorage.getItem('wallai_free_generations') || '5';
-    const currentFreeGenerations = Number(currentFreeGenerationsRaw);
+    let cancelled = false;
 
-    if (plan === 'pro') {
-      localStorage.setItem('wallai_user_plan', 'pro');
-      setPlanName('Proプラン (月額サブスクリプション・使い放題)');
-    } else if (plan === 'business') {
-      localStorage.setItem('wallai_user_plan', 'business');
-      setPlanName('法人プラン (月額サブスクリプション・最大5名同時利用可)');
-    } else if (plan === 'quota') {
-      localStorage.setItem('wallai_user_plan', 'quota');
-      // 20回分を追加
-      const newQuota = currentFreeGenerations + 20;
-      localStorage.setItem('wallai_free_generations', String(newQuota));
-      setPlanName('生成枠 20回追加パック (適用完了)');
-      
-      // カスタムイベントを発火してHeader等と同期させる
-      window.dispatchEvent(new Event('storage'));
-    } else {
-      setPlanName('決済の同期中...');
-    }
+    // Stripe's notification usually arrives within a second or two, but it is not instant and it is
+    // not ordered relative to this redirect. Rather than show a stale balance, ask a few times.
+    const check = async (attempt: number) => {
+      if (cancelled) return;
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        const data = await res.json();
+        if (data?.user && data.user.plan !== 'free') {
+          if (!cancelled) {
+            window.dispatchEvent(new Event('wallai:plan_updated'));
+            setLoading(false);
+          }
+          return;
+        }
+        if (data?.user && plan === 'quota' && attempt > 0) {
+          // A credit pack leaves the plan as free, so there is nothing to compare; one round trip
+          // is enough to pick up the new balance.
+          if (!cancelled) {
+            window.dispatchEvent(new Event('wallai:plan_updated'));
+            setLoading(false);
+          }
+          return;
+        }
+      } catch {}
 
-    // 変更をグローバル通知
-    window.dispatchEvent(new Event('wallai:plan_updated'));
-    setLoading(false);
+      if (attempt >= 5) {
+        // Still nothing. The payment is safe with Stripe and will be applied when its notification
+        // arrives; saying so is better than showing a balance that has not moved.
+        if (!cancelled) {
+          setPending(true);
+          setLoading(false);
+        }
+        return;
+      }
+      setTimeout(() => check(attempt + 1), 1500);
+    };
+
+    check(0);
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   return (
@@ -55,7 +90,9 @@ function CheckoutSuccessContent() {
       </h1>
 
       <p className="mt-3 text-sm text-ink-soft leading-relaxed">
-        決済手続きが正常に完了いたしました。アカウントにプランが即座に反映されました。
+        {pending
+          ? '決済は完了しています。アカウントへの反映に少し時間がかかっています。数分後にページを再読み込みしてください。反映されない場合はお問い合わせください。'
+          : '決済手続きが正常に完了し、アカウントに反映されました。'}
       </p>
 
       {!loading && (

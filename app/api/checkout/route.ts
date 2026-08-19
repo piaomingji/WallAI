@@ -20,15 +20,15 @@ export async function POST(req: NextRequest) {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
 
     if (!stripeKey || stripeKey === 'your_stripe_secret_key_here') {
-      console.warn('STRIPE_SECRET_KEY is not configured. Running in Mock Mode.');
-      if (planId === 'quota') {
-        await addUserCredits(user.id, 20);
-      } else if (planId === 'pro' || planId === 'business') {
-        await addUserCredits(user.id, 100, 'pro');
-      }
-      return NextResponse.json({
-        url: `${origin}/checkout-success?mock=true&plan=${planId}`,
-      });
+      // There used to be a "mock mode" here that simply granted the plan when no Stripe key was
+      // configured. It exists for local development, but it shipped: had the key ever gone missing
+      // in production -- a typo, a rotated secret, a new environment -- anyone could have taken a
+      // paid plan for nothing. Refusing is the safe failure.
+      console.error('STRIPE_SECRET_KEY is not configured; checkout cannot run.');
+      return NextResponse.json(
+        { error: '決済機能が現在ご利用いただけません。時間をおいてお試しください。' },
+        { status: 503 }
+      );
     }
 
     const stripe = new Stripe(stripeKey);
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
         payment_method_types: ['card'],
         client_reference_id: user.id,
         customer_email: user.email,
+        // Carried through to the webhook, which is the only place entitlements are granted.
+        metadata: { userId: user.id, planId },
         line_items: [
           {
             price_data: {
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest) {
           },
         ],
         mode: 'subscription',
+        subscription_data: { metadata: { userId: user.id, planId } },
         success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}&plan=pro`,
         cancel_url: `${origin}/#pricing`,
       });
@@ -63,6 +66,8 @@ export async function POST(req: NextRequest) {
         payment_method_types: ['card'],
         client_reference_id: user.id,
         customer_email: user.email,
+        // Carried through to the webhook, which is the only place entitlements are granted.
+        metadata: { userId: user.id, planId },
         line_items: [
           {
             price_data: {
@@ -78,6 +83,7 @@ export async function POST(req: NextRequest) {
           },
         ],
         mode: 'subscription',
+        subscription_data: { metadata: { userId: user.id, planId } },
         success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}&plan=business`,
         cancel_url: `${origin}/#pricing`,
       });
@@ -86,6 +92,8 @@ export async function POST(req: NextRequest) {
         payment_method_types: ['card'],
         client_reference_id: user.id,
         customer_email: user.email,
+        // Carried through to the webhook, which is the only place entitlements are granted.
+        metadata: { userId: user.id, planId },
         line_items: [
           {
             price_data: {
@@ -108,16 +116,13 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Stripe Checkout Session Error:', error);
-    let errMsg = 'Unknown Server Error';
-    if (error) {
-      if (typeof error === 'string') {
-        errMsg = error;
-      } else {
-        errMsg = error.message || error.raw?.message || JSON.stringify(error);
-      }
-    }
-    return NextResponse.json({ error: errMsg }, { status: 500 });
+    // The detail goes to the log, not to the browser: Stripe's messages can name internal
+    // configuration, and a person cannot act on them anyway.
+    return NextResponse.json(
+      { error: '決済ページの作成に失敗しました。時間をおいて再度お試しください。' },
+      { status: 500 }
+    );
   }
 }
