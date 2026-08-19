@@ -1,5 +1,7 @@
 "use client";
 
+import { GOOGLE_CLIENT_ID } from "@/lib/googleClient";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Sparkles, Mail, Lock, User, X, CheckCircle2, ShieldCheck } from "lucide-react";
@@ -53,7 +55,7 @@ export const AuthModal: React.FC = () => {
   useEffect(() => {
     if (!isAuthModalOpen) return;
 
-    const clientId = "729533279786-55pmrngc4lurkcv4dluf048v7es7uiua.apps.googleusercontent.com";
+    const clientId = GOOGLE_CLIENT_ID;
 
     const initGoogle = () => {
       if (window.google?.accounts?.id) {

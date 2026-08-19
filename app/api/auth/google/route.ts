@@ -1,13 +1,15 @@
-import { safeKvGet, getIpQuotaFromCookie } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { decodeJwt } from "jose";
 import {
   getUserByEmail,
   saveUser,
   createSessionToken,
   setSessionCookie,
   saveRegisteredUserToCookie,
+  getIpQuotaFromCookie,
 } from "@/lib/auth";
+import { verifyGoogleCredential } from "@/lib/googleToken";
+import { GOOGLE_CLIENT_ID } from "@/lib/googleClient";
+import { quotaGet, IP_QUOTA_KEY, GOOGLE_QUOTA_KEY, FREE_TOTAL_CREDITS } from "@/lib/quota";
 
 export const runtime = "nodejs";
 
@@ -19,41 +21,58 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Google認証情報が見つかりません。" }, { status: 400 });
     }
 
-    const payload = decodeJwt(credential) as {
-      email?: string;
-      name?: string;
-      sub?: string;
-      picture?: string;
-    };
-
-    if (!payload || !payload.email) {
-      return NextResponse.json({ error: "無効なGoogleアカウント情報です。" }, { status: 400 });
+    // Verified, not merely decoded. See lib/googleToken.ts.
+    const identity = await verifyGoogleCredential(
+      credential,
+      GOOGLE_CLIENT_ID
+    );
+    if (!identity) {
+      return NextResponse.json({ error: "Googleアカウントの確認に失敗しました。" }, { status: 401 });
     }
 
-    const email = payload.email.toLowerCase().trim();
+    const email = identity.email;
     let user = await getUserByEmail(email);
 
     if (!user) {
-      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
-      const ipKey = `wall_ai:ip:${ip}`;
-      const currentIpCount = await safeKvGet(ipKey);
-      const ipQuotaCount = await getIpQuotaFromCookie();
-      const effectiveIpCount = Math.max(currentIpCount, ipQuotaCount);
+      const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        req.headers.get("x-real-ip") ||
+        "127.0.0.1";
 
-      const initialCredits = Math.max(0, Math.min(10 - effectiveIpCount, typeof guestQuotaRemaining === "number" ? Math.max(0, guestQuotaRemaining) + 5 : 10));
+      // How much this device has already used, whichever record has seen more.
+      //
+      // The Google-account counter is what stops the obvious workaround: use up the free credits,
+      // sign in with a second address, and start again. It is keyed to Google's stable account id
+      // rather than the email, so changing the address on the account does not reset it either.
+      const [ipCount, googleCount] = await Promise.all([
+        quotaGet(IP_QUOTA_KEY(ip)),
+        quotaGet(GOOGLE_QUOTA_KEY(identity.sub)),
+      ]);
+      const cookieCount = await getIpQuotaFromCookie();
+      const alreadyUsed = Math.max(ipCount, cookieCount, googleCount);
+
+      const requested =
+        typeof guestQuotaRemaining === "number"
+          ? Math.max(0, guestQuotaRemaining) + 5
+          : FREE_TOTAL_CREDITS;
+
+      const initialCredits = Math.max(0, Math.min(FREE_TOTAL_CREDITS - alreadyUsed, requested));
 
       const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       user = {
         id: userId,
         email,
-        name: payload.name || email.split("@")[0],
-        avatarUrl: payload.picture,
+        name: identity.name || email.split("@")[0],
+        avatarUrl: identity.picture,
         plan: "free",
         credits: initialCredits,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       await saveUser(user);
+      console.log(
+        `New account ${email}: ${initialCredits} credits (already used on this device/account: ${alreadyUsed})`
+      );
     }
 
     const token = await createSessionToken(user);

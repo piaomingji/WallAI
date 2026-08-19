@@ -3,42 +3,23 @@ import { GoogleGenAI } from '@google/genai';
 import { HOUSE_TYPES, PAINT_COLORS } from '@/lib/constants';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createClient } from '@vercel/kv';
+import { quotaGet, quotaIncrement } from '@/lib/quotaStore';
+import { IP_QUOTA_KEY, GOOGLE_QUOTA_KEY, QUOTA_TTL_SECONDS, FREE_TOTAL_CREDITS, FREE_GUEST_CREDITS } from '@/lib/quota';
 import { getCurrentUser, deductUserCredit, getIpQuotaFromCookie, incrementIpQuotaCookie } from '@/lib/auth';
 
-const kv = createClient({
-  url: process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL || "",
-  token: process.env.KV_REST_API_TOKEN || process.env.REDIS_REST_API_TOKEN || "",
-});
-
+/**
+ * Counters used to live in @vercel/kv, which speaks Redis over HTTP and needs KV_REST_API_URL and
+ * KV_REST_API_TOKEN. Those were never set, so every read returned 0 and every write was dropped:
+ * the free limit was never actually enforced. They now go through the shared store, which uses the
+ * plain redis:// URL the Vercel Redis integration provides.
+ */
 async function safeKvGet(key: string): Promise<number> {
-  try {
-    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
-    const val = await kv.get<number>(key);
-    return typeof val === "number" ? val : 0;
-  } catch (e) {
-    console.warn("KV get failed:", e);
-    return 0;
-  }
+  return await quotaGet(key);
 }
 
-async function safeKvSet(key: string, value: number, opts?: any) {
-  try {
-    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return;
-    await kv.set(key, value, opts);
-  } catch (e) {
-    console.warn("KV set failed:", e);
-  }
-}
-
-async function safeKvTtl(key: string): Promise<number> {
-  try {
-    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
-    return await kv.ttl(key);
-  } catch (e) {
-    console.warn("KV ttl failed:", e);
-    return 0;
-  }
+/** Counts one use. Incrementing in the database avoids two requests racing and losing a count. */
+async function bumpCounter(key: string): Promise<number> {
+  return await quotaIncrement(key, QUOTA_TTL_SECONDS);
 }
 
 export const runtime = 'nodejs';
@@ -111,7 +92,7 @@ export async function POST(req: NextRequest) {
     const ipQuotaCount = await getIpQuotaFromCookie();
 
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1";
-    const ipKey = `wall_ai:ip:${ip}`;
+    const ipKey = IP_QUOTA_KEY(ip);
     const currentIpCount = await safeKvGet(ipKey);
     const effectiveIpCount = Math.max(ipQuotaCount, currentIpCount);
 
@@ -127,7 +108,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (currentUser.plan === "free" && effectiveIpCount >= 10) {
+      if (currentUser.plan === "free" && effectiveIpCount >= FREE_TOTAL_CREDITS) {
         return NextResponse.json(
           {
             error: "このIPアドレス（端末）からの無料利用枠（合計10回）を超過しました。有料プラン（Proプラン）へのお申し込みが必要です。",
@@ -149,11 +130,12 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      await safeKvSet(ipKey, currentIpCount + 1);
+      await bumpCounter(ipKey);
+      if (currentUser.email) await bumpCounter(GOOGLE_QUOTA_KEY(currentUser.email));
       await incrementIpQuotaCookie();
       remainingCredits = updatedCredits;
     } else {
-      if (effectiveIpCount >= 5) {
+      if (effectiveIpCount >= FREE_GUEST_CREDITS) {
         return NextResponse.json(
           {
             error: "この端末（IP）からの無料お試しの制限回数（5回）を超過しました。無料会員登録をするとさらにクレジットを獲得できます！",
@@ -163,7 +145,7 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
-      await safeKvSet(ipKey, currentIpCount + 1);
+      await bumpCounter(ipKey);
       await incrementIpQuotaCookie();
     }
 
@@ -270,8 +252,8 @@ export async function POST(req: NextRequest) {
 
     const isPremium = !!isPremiumUser; // Check premium status sent from client
     if (isDemoMode && !isPremium) {
-      const ipKey = `wall-ai:ip:${ip}`;
-      const googleKey = finalUserIdentifier ? `wall-ai:google:${finalUserIdentifier}` : null;
+      const ipKey = IP_QUOTA_KEY(ip);
+      const googleKey = finalUserIdentifier ? GOOGLE_QUOTA_KEY(finalUserIdentifier) : null;
 
       const currentIpCount = await safeKvGet(ipKey);
       const currentGoogleCount = googleKey ? (await safeKvGet(googleKey)) : 0;
@@ -509,27 +491,11 @@ CRITICAL ARCHITECTURAL CONSTRAINTS (MANDATORY / HIGHEST PRIORITY):
 
     if (isDemoMode) {
       if (!isPremium) {
-        // IP address rate limiting with 72-hour reset (259200 seconds)
-        const ipKey = `wall-ai:ip:${ip}`;
-        const currentIpCount = await safeKvGet(ipKey);
-        if (currentIpCount === 0) {
-          await safeKvSet(ipKey, 1, { ex: 72 * 60 * 60 });
-        } else {
-          const ttl = await safeKvTtl(ipKey);
-          await safeKvSet(ipKey, currentIpCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
-        }
-
-        // Google account rate limiting with 72-hour reset
-        if (finalUserIdentifier) {
-          const googleKey = `wall-ai:google:${finalUserIdentifier}`;
-          const currentGoogleCount = await safeKvGet(googleKey);
-          if (currentGoogleCount === 0) {
-            await safeKvSet(googleKey, 1, { ex: 72 * 60 * 60 });
-          } else {
-            const ttl = await safeKvTtl(googleKey);
-            await safeKvSet(googleKey, currentGoogleCount + 1, ttl > 0 ? { ex: ttl } : { ex: 72 * 60 * 60 });
-          }
-        }
+        // The count is kept for a year rather than expiring after 72 hours. The free allowance is a
+        // total, not a rolling window: letting it lapse every three days handed the same device a
+        // fresh set of free generations twice a week.
+        await bumpCounter(IP_QUOTA_KEY(ip));
+        if (finalUserIdentifier) await bumpCounter(GOOGLE_QUOTA_KEY(finalUserIdentifier));
       }
 
       // PRO 회원 생성 기록 업데이트 (누적 횟수 증가 및 최종 생성 시각 업데이트)

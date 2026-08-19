@@ -1,11 +1,26 @@
-import { decodeJwt } from "jose";
+
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import { createClient } from "@vercel/kv";
+import { storeGetJson, storeGetString, storeSetJson, storeSetString, quotaGet as storeQuotaGet, quotaIncrement } from "@/lib/quotaStore";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "wall_ai_jwt_secret_key_2026_super_secure_67890"
-);
+/**
+ * The key that signs session cookies.
+ *
+ * It had a hard-coded fallback, and with no JWT_SECRET configured that fallback was what actually
+ * signed every session. A secret committed to the repository is not a secret: anyone who can read
+ * the source can mint a cookie for any account. Verifying signatures properly only helps if the key
+ * is not public, so this says so loudly rather than carrying on quietly.
+ */
+const FALLBACK_SECRET = "wall_ai_jwt_secret_key_2026_super_secure_12345";
+
+if (!process.env.JWT_SECRET) {
+  console.error(
+    "SESSIONS ARE FORGEABLE: JWT_SECRET is not set, so sessions are signed with a key that is " +
+      "published in the source. Set JWT_SECRET to a long random value."
+  );
+}
+
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || FALLBACK_SECRET);
 
 const COOKIE_NAME = "wall_ai_session";
 
@@ -21,13 +36,18 @@ export interface UserProfile {
   updatedAt: string;
 }
 
-const kv = createClient({
-  url: process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL || "",
-  token: process.env.KV_REST_API_TOKEN || process.env.REDIS_REST_API_TOKEN || "",
-});
-
-const memoryUserDb = new Map<string, { user: UserProfile; passwordHash: string }>();
-const memoryUserByEmail = new Map<string, string>();
+/**
+ * Accounts are kept in Redis, not in memory.
+ *
+ * They used to fall back to an in-process Map whenever the store was unconfigured -- which it always
+ * was, since the REST credentials this file looked for were never set. On Vercel each request may be
+ * served by a fresh instance, so that Map was empty again moments later: every sign-in looked like a
+ * brand new account and handed out another set of free credits, to the same person, indefinitely.
+ * The limits were not being bypassed; there was simply nothing remembering anyone.
+ */
+const USER_KEY = (id: string) => `wall_ai:user:${id}`;
+const USER_BY_EMAIL_KEY = (email: string) => `wall_ai:user-email:${email.toLowerCase()}`;
+const USER_AUTH_KEY = (id: string) => `wall_ai:user-auth:${id}`;
 
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -51,17 +71,19 @@ export async function createSessionToken(user: UserProfile): Promise<string> {
     .sign(JWT_SECRET);
 }
 
+/**
+ * Reads a session cookie, and only accepts it if the signature holds.
+ *
+ * There used to be a fallback here: if verification failed, the token was decoded unsigned and
+ * accepted anyway as long as it carried a subject or an email. That made the signature decorative --
+ * anyone could write their own cookie naming any account and be logged in as them, with that
+ * account's credits and plan. An expired or tampered token is now simply not a session.
+ */
 export async function verifySessionToken(token: string) {
   try {
     const verified = await jwtVerify(token, JWT_SECRET);
     return verified.payload;
   } catch {
-    try {
-      const decoded = decodeJwt(token);
-      if (decoded && (decoded.sub || decoded.email)) {
-        return decoded;
-      }
-    } catch {}
     return null;
   }
 }
@@ -116,74 +138,39 @@ export async function clearSessionCookie() {
 }
 
 export async function saveUser(user: UserProfile, passwordHash?: string): Promise<void> {
-  try {
-    if (process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL) {
-      await kv.set(`wall-ai:user:${user.id}`, user);
-      await kv.set(`wall-ai:user-email:${user.email.toLowerCase()}`, user.id);
-      if (passwordHash) {
-        await kv.set(`wall-ai:user-auth:${user.id}`, passwordHash);
-      }
-    } else {
-      memoryUserDb.set(user.id, { user, passwordHash: passwordHash || "" });
-      memoryUserByEmail.set(user.email.toLowerCase(), user.id);
-    }
-  } catch (err) {
-    console.warn("Failed to save user to KV, saved to memory:", err);
-    memoryUserDb.set(user.id, { user, passwordHash: passwordHash || "" });
-    memoryUserByEmail.set(user.email.toLowerCase(), user.id);
+  const stored = await storeSetJson(USER_KEY(user.id), user);
+  await storeSetString(USER_BY_EMAIL_KEY(user.email), user.id);
+  if (passwordHash) await storeSetString(USER_AUTH_KEY(user.id), passwordHash);
+
+  if (!stored) {
+    // Worth shouting about: without persistence the free tier resets on every request.
+    console.error("ACCOUNT NOT SAVED: the store is unreachable. Check KV_REDIS_URL.");
   }
+
+  // The cookie stays as a convenience copy, not as the source of truth.
   await saveRegisteredUserToCookie(user);
 }
 
 export async function getUserById(userId: string): Promise<UserProfile | null> {
-  try {
-    if (process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL) {
-      const user = await kv.get<UserProfile>(`wall-ai:user:${userId}`);
-      if (user) return user;
-    }
-    const record = memoryUserDb.get(userId);
-    return record ? record.user : null;
-  } catch {
-    const record = memoryUserDb.get(userId);
-    return record ? record.user : null;
-  }
+  return await storeGetJson<UserProfile>(USER_KEY(userId));
 }
 
 export async function getUserByEmail(email: string): Promise<UserProfile | null> {
-  try {
-    const normalizedEmail = email.toLowerCase().trim();
-    let userId: string | null = null;
-
-    if (process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL) {
-      userId = await kv.get<string>(`wallai:user-email:${normalizedEmail}`);
-    } else {
-      userId = memoryUserByEmail.get(normalizedEmail) || null;
-    }
-
-    if (userId) {
-      const user = await getUserById(userId);
-      if (user) return user;
-    }
-
-    return await getRegisteredUserFromCookie(normalizedEmail);
-  } catch {
-    return null;
+  const normalizedEmail = email.toLowerCase().trim();
+  const userId = await storeGetString(USER_BY_EMAIL_KEY(normalizedEmail));
+  if (userId) {
+    const user = await getUserById(userId);
+    if (user) return user;
   }
+  // Only as a last resort: a returning visitor whose account predates the store being connected.
+  return await getRegisteredUserFromCookie(normalizedEmail);
 }
 
 export async function verifyUserPassword(userId: string, password: string): Promise<boolean> {
   try {
     const inputHash = await hashPassword(password);
-    let storedHash: string | null = null;
-
-    if (process.env.KV_REST_API_URL || process.env.REDIS_REST_API_URL) {
-      storedHash = await kv.get<string>(`wall-ai:user-auth:${userId}`);
-    } else {
-      const record = memoryUserDb.get(userId);
-      storedHash = record ? record.passwordHash : null;
-    }
-
-    return storedHash === inputHash;
+    const storedHash = await storeGetString(USER_AUTH_KEY(userId));
+    return !!storedHash && storedHash === inputHash;
   } catch {
     return false;
   }
@@ -321,23 +308,19 @@ export async function incrementIpQuotaCookie(): Promise<number> {
 }
 
 
+/** Kept for callers elsewhere in the app; now backed by the store that actually works. */
 export async function safeKvGet(key: string): Promise<number> {
-  try {
-    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return 0;
-    const val = await kv.get<number>(key);
-    return typeof val === "number" ? val : 0;
-  } catch (e) {
-    console.warn("KV get failed:", e);
-    return 0;
-  }
+  return await storeQuotaGet(key);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function safeKvSet(key: string, value: number, opts?: any) {
-  try {
-    if (!process.env.KV_REST_API_URL && !process.env.REDIS_REST_API_URL) return;
-    await kv.set(key, value, opts);
-  } catch (e) {
-    console.warn("KV set failed:", e);
-  }
+/**
+ * Kept for callers elsewhere in the app.
+ *
+ * Counters are incremented rather than overwritten now. Read-then-write loses count whenever two
+ * requests overlap, which for a usage limit means undercounting exactly when someone is using the
+ * service hardest.
+ */
+export async function safeKvSet(key: string, _value: number, opts?: { ex?: number }) {
+  await quotaIncrement(key, opts?.ex);
 }
