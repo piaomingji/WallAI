@@ -98,7 +98,7 @@ export const UserNav: React.FC = () => {
                   <span>{portalLoading ? "開いています…" : "お支払い・解約"}</span>
                 </button>
                 {portalError && (
-                  <p className="px-4 pb-2 text-[11px] leading-relaxed text-red-600 dark:text-red-400">
+                  <p className="px-4 pb-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                     {portalError}
                   </p>
                 )}

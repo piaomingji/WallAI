@@ -108,6 +108,9 @@ export async function POST(req: NextRequest) {
           },
         ],
         mode: 'payment',
+        // 一回払いは、指定しないとStripeが顧客を作りません。顧客が無いと「お支払い・解約」から
+        // 領収書を見ることもできないので、パックの購入でも必ず作らせる。
+        customer_creation: 'always',
         success_url: `${origin}/checkout-success?session_id={CHECKOUT_SESSION_ID}&plan=quota`,
         cancel_url: `${origin}/#pricing`,
       });

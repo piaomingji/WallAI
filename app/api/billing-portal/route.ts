@@ -49,8 +49,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!customerId) {
+      // 追加パックだけを買った人には、顧客が作られていないことがある（一回払いはStripeが
+      // 顧客を作らないため）。解約するものが無いだけなので、失敗したように見せない。
       return NextResponse.json(
-        { error: "このアカウントでのお支払いの記録が見つかりませんでした。" },
+        {
+          error:
+            "ご契約中の月額プランはありません。追加パックのご購入分は、そのままご利用いただけます。",
+        },
         { status: 404 }
       );
     }
