@@ -159,118 +159,175 @@ async function generateArticle(selectedTopic) {
   return JSON.parse(textContent);
 }
 
-// 記事の内容に沿ったアイキャッチ画像を生成する関数 (Imagen 3がエラーの場合はUnsplashのフリー画像をフォールバック)
+// ===================== アイキャッチ画像の生成 =====================
+// 2026-08 変更点:
+//   旧 imagen-3.0-generate-002 は Google 側で提供終了（後継の imagen-4.0 系も
+//   2026-08-17 に提供終了）。そのため毎日の生成が失敗し、記事と無関係な
+//   Unsplash 画像や低解像度の代替画像が公開されていた。
+//   → Nano Banana 系（gemini-3-pro-image / gemini-3.1-flash-image）に移行し、
+//     低品質なフォールバックは全廃した。画像が作れなければ記事も追加しない。
+const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-3.1-flash-image'];
+const ATTEMPTS_PER_MODEL = 2;
+const MIN_IMAGE_BYTES = 30000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// generateContent 形式のレスポンスから画像バイト列を取り出す
+function pickInlineImage(response) {
+  const parts = response?.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    const data = part?.inlineData?.data ?? part?.inline_data?.data;
+    if (data) return Buffer.from(data, 'base64');
+  }
+  return null;
+}
+
+// interactions 形式のレスポンスから画像バイト列を取り出す
+function pickInteractionImage(interaction) {
+  const direct = interaction?.output_image?.data ?? interaction?.outputImage?.data;
+  if (direct) return Buffer.from(direct, 'base64');
+  for (const step of interaction?.steps ?? []) {
+    for (const block of step?.content ?? []) {
+      const isImage = block?.type === 'image' ||
+        (typeof block?.mime_type === 'string' && block.mime_type.startsWith('image/'));
+      if (isImage && block?.data) return Buffer.from(block.data, 'base64');
+    }
+  }
+  return null;
+}
+
+// 1モデルで1回だけ画像生成を試みる（新旧2つのAPI形式に対応）
+async function renderImage(ai, model, prompt) {
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseModalities: ['IMAGE'],
+        imageConfig: { aspectRatio: '16:9', imageSize: '2K' }
+      }
+    });
+    const buffer = pickInlineImage(response);
+    if (buffer && buffer.length > MIN_IMAGE_BYTES) return buffer;
+    console.log(`  [${model}] generateContent: 画像が返りませんでした`);
+  } catch (error) {
+    console.log(`  [${model}] generateContent 失敗: ${error.message}`);
+  }
+
+  if (typeof ai.interactions?.create === 'function') {
+    try {
+      const interaction = await ai.interactions.create({
+        model,
+        input: prompt,
+        response_format: {
+          type: 'image',
+          mime_type: 'image/jpeg',
+          aspect_ratio: '16:9',
+          image_size: '2K'
+        }
+      });
+      const buffer = pickInteractionImage(interaction);
+      if (buffer && buffer.length > MIN_IMAGE_BYTES) return buffer;
+      console.log(`  [${model}] interactions: 画像が返りませんでした`);
+    } catch (error) {
+      console.log(`  [${model}] interactions 失敗: ${error.message}`);
+    }
+  }
+
+  return null;
+}
+
+// ブログ表示用の画像圧縮
+// 生成直後の画像は 2752x1536・3MB 前後あり、ブログの読み込みが重くなる。
+// 幅1600pxまで縮小し、品質82のJPEGに変換して 300KB 前後まで落とす（見た目はほぼ変わらない）。
+// sharp が入っていない環境では圧縮せずそのまま保存する（生成自体は止めない）。
+const MAX_IMAGE_WIDTH = 1600;
+const JPEG_QUALITY = 82;
+
+async function compressJpeg(buffer) {
+  try {
+    const sharp = (await import('sharp')).default;
+    const output = await sharp(buffer)
+      .rotate()
+      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
+      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true, progressive: true })
+      .toBuffer();
+    if (output.length > 0 && output.length < buffer.length) {
+      console.log(`  圧縮: ${Math.round(buffer.length / 1024)}KB -> ${Math.round(output.length / 1024)}KB`);
+      return output;
+    }
+    return buffer;
+  } catch (error) {
+    console.log(`  警告: 画像を圧縮できませんでした（npm install sharp が必要です）: ${error.message}`);
+    return buffer;
+  }
+}
+
+// pro → flash の順に、各モデル2回ずつ試す。すべて駄目なら例外を投げる（＝記事を追加しない）
+async function renderImageWithFallback(ai, prompt) {
+  for (const model of IMAGE_MODELS) {
+    for (let attempt = 1; attempt <= ATTEMPTS_PER_MODEL; attempt++) {
+      console.log(`画像生成を試行中: ${model} (${attempt}/${ATTEMPTS_PER_MODEL})`);
+      const buffer = await renderImage(ai, model, prompt);
+      if (buffer) {
+        console.log(`画像生成に成功しました: ${model} (${Math.round(buffer.length / 1024)}KB)`);
+        return compressJpeg(buffer);
+      }
+      if (attempt < ATTEMPTS_PER_MODEL) await sleep(4000);
+    }
+  }
+  throw new Error(
+    'アイキャッチ画像を生成できませんでした。品質の低い代替画像は使用しない方針のため、今回の記事は追加しません。'
+  );
+}
+
+// 記事の内容に沿ったアイキャッチ画像を生成する（必ず Buffer を返す。作れなければ例外）
 async function generateImage(title, excerpt, defaultEyecatch, keywords, existingEyecatches, slug) {
+  console.log(`Generating matching eyecatch image for slug: ${slug}`);
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
+
   const promptForImagePrompt = `
-You are an expert prompt engineer for AI image generators (Imagen 3).
-Create a highly detailed, descriptive English prompt for generating a blog cover image that perfectly matches the following article:
+You are an expert prompt engineer for Google's Gemini image model (Nano Banana).
+Write ONE detailed English prompt for a 16:9 blog cover photograph that matches this Japanese article about EXTERIOR house painting and exterior renovation (外壁塗装・屋根塗装・住宅外装).
 
 Article Title: ${title}
 Article Excerpt: ${excerpt}
+Keywords: ${(keywords || []).join(', ')}
 
-MANDATORY REQUIREMENTS FOR HIGH-CTR CLICK-WORTHY IMAGES:
-1. MUST be photorealistic, ultra-high quality, 8k architectural showcase photography of a beautiful modern Japanese home exterior.
-2. Must feature warm golden-hour lighting, pristine painted walls, elegant modern design, and beautiful depth of field.
-3. NO uncanny artifacts, NO text, NO ugly distorted scenes.
-1. Describe a realistic, high-quality, professional photograph of a residential house exterior in Japan.
-2. The image MUST visually represent the theme of the article. For example:
-   - If the article is about "beige and gray", describe a modern house with beige and gray exterior walls.
-   - If the article is about "twotone color", describe a house with a clear two-tone color combination (e.g., dark brown first floor, white second floor).
-   - If the article is about "cost estimation" or "checking quotes", describe a beautiful modern house exterior showing high value and quality.
-   - If the article is about "siding maintenance", describe a house with clean, high-quality siding textures.
-   - If the article is about seasons/timing (e.g., spring/autumn), describe a house exterior with beautiful clear sky and seasonal trees (like cherry blossoms for spring or autumn leaves).
-3. Specify realistic lighting (e.g., "warm afternoon sunlight", "bright daytime daylight") and setting (e.g., "clean street", "subtle green plants in the front garden").
-4. Use architectural photography style keywords: "architectural photography, modern Japanese house design, high-end residential exterior, detailed texture, 8k resolution".
-5. Do NOT include any text, overlays, UI elements, signs, or people in the image.
-6. The prompt must be in English and output ONLY the prompt text, without any introductory or concluding remarks.
+RULES
+1. THIS IS AN EXTERIOR TOPIC. The photograph must show the OUTSIDE of a Japanese detached house (外観). NEVER describe an interior room, living room, furniture, or indoor lighting.
+2. THE SUBJECT MUST MATCH THE ARTICLE. Read the title carefully:
+   - ベージュ / グレー / 色選び -> a modern house whose walls clearly show those colours
+   - ツートン -> a house with an obvious two-tone wall colour split
+   - 遮熱塗料 -> a sunlit house exterior under a strong bright sky
+   - シーリング / コーキング -> a close view of the joint lines between siding boards
+   - サイディング -> a house with clean, sharply detailed siding texture
+   - モルタル -> a house with mortar/stucco wall texture
+   - 雨樋 -> a composition where the rain gutter along the eaves is clearly visible
+   - ALC -> a house with the characteristic panel joints of ALC board walls
+   - カビ / 苔 / 汚れ / 劣化 -> the affected wall surface as the focus, shown honestly but photographed beautifully
+   - 屋根 -> a composition that clearly shows the roof
+   - 費用 / 業者選び / 補助金 -> a handsome, well-maintained modern Japanese house exterior that conveys value
+   - 季節 / 時期 -> the exterior with a clear seasonal sky and seasonal trees
+3. Describe a photorealistic architectural exterior photograph taken in Japan. Demand: straight vertical walls, correct perspective, tack-sharp focus, physically plausible construction, no warped or melted shapes, no duplicated windows, no impossible geometry.
+4. Bright natural daylight or warm late-afternoon sun, clean street or tidy front garden, subtle greenery, the quality level of an architectural magazine feature.
+5. The image must contain NO text, NO Japanese characters, NO letters, NO signage, NO logos, NO watermarks, NO UI elements, NO borders, and NO people.
+6. Output ONLY the prompt text, with no preamble or closing remarks.
 `;
 
-  try {
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-    const promptResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: promptForImagePrompt
-    });
+  const promptResponse = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: promptForImagePrompt
+  });
 
-    const imagePrompt = promptResponse.text.trim();
-    console.log(`Generated Image Prompt: ${imagePrompt}`);
+  const imagePrompt = promptResponse.text.trim();
+  console.log(`Generated Image Prompt: ${imagePrompt}`);
 
-    console.log("Attempting to generate image via Imagen 3 (imagen-3.0-generate-002)...");
-    const imageResponse = await ai.models.generateImages({
-      model: "imagen-3.0-generate-002",
-      prompt: `${imagePrompt}, professional architecture photography, beautiful residential exterior house paint design, daytime daylight, 8k, architectural digest`,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: "16:9",
-        outputMimeType: "image/jpeg"
-      }
-    });
+  const finalPrompt = `${imagePrompt}
 
-    if (imageResponse && imageResponse.generatedImages && imageResponse.generatedImages.length > 0) {
-      const base64Image = imageResponse.generatedImages[0].image.imageBytes;
-      console.log("Successfully generated image via Imagen 3!");
-      return { type: 'buffer', data: Buffer.from(base64Image, 'base64') };
-    }
-    throw new Error('Image data not found in response');
-  } catch (error) {
-    console.log('Gemini Image generation failed or not supported. Falling back to specific image...', error.message);
-    
-    // プリセットのデフォルト画像が指定されており、まだ使われていない場合はそれを使用
-    if (defaultEyecatch && !existingEyecatches.includes(defaultEyecatch)) {
-      console.log(`Using default preset eyecatch: ${defaultEyecatch}`);
-      return { type: 'url', data: defaultEyecatch };
-    }
-    
-    // 静的なフォールバック画像リスト（他で使用済みのURLは排除する - 住宅の外装のみ）
-    const photoIds = [
-      'photo-1513584684374-8bab748fbf90', 'photo-1605276374104-dee2a0ed3cd6', 'photo-1580587771525-78b9dba3b914', 'photo-1512917774080-9991f1c4c750',
-      'photo-1600585154340-be6161a56a0c', 'photo-1600596542815-ffad4c1539a9', 'photo-1512915922686-57c11dde9b6b', 'photo-1600585154526-990dced4db0d',
-      'photo-1513694203232-719a280e022f', 'photo-1486406146926-c627a92ad1ab', 'photo-1542314831-068cd1dbfeeb', 'photo-1416331108676-a22ccb276e35',
-      'photo-1507089947368-19c1da9775ae', 'photo-1523217582562-09d0def993a6', 'photo-1592595896551-12b371d546d5', 'photo-1582268611958-ebfd161ef9cf',
-      'photo-1583608205776-bfd35f0d9f83', 'photo-1598257006458-087169a1f08d', 'photo-1602941525421-8f8b81d3edbb', 'photo-1505873242700-f289a29e1e0f',
-      'photo-1505691938895-1758d7feb511', 'photo-1510798831971-661eb04b3739', 'photo-1513694203232-719a280e022f', 'photo-1549517045-bc93de006e53',
-      'photo-1554995207-c18c203602cb', 'photo-1582063287911-c75c3f3f3f30', 'photo-1584622781564-1d987f733321', 'photo-1585412727339-54e4bae3bbf9',
-      'photo-1599809275671-b59411bc4824', 'photo-1600047509807-ba8f99d2cdde', 'photo-1600585154363-67eb9e2e2099', 'photo-1600596542815-ffad4c1539a9',
-      'photo-1600607687920-4e2a09cf159d', 'photo-1605117882932-f9e32b03fea9', 'photo-1613490493576-7fde63acd811', 'photo-1613977257363-707ba9348227',
-      'photo-1615529182904-14819c35db37', 'photo-1618219908412-a29a1bb7b86e', 'photo-1618219944342-824e40a13285', 'photo-1618221195710-dd6b41faaea6',
-      'photo-1628624747186-a941c476b7ef', 'photo-1628744504164-05177a80b8e8', 'photo-1502005229762-fc1b2b812ca5', 'photo-1512917774080-9991f1c4c750',
-      'photo-1516450360452-9312f5e86fc7', 'photo-1528909514045-2fa4ac7a08ba', 'photo-1558036117-15d82a90b9b1', 'photo-1570129477492-45c003edd2be',
-      'photo-1576941089067-2de3c901e126', 'photo-1580587771525-78b9dba3b914', 'photo-1591825729269-caeb344f6df2', 'photo-1592595896551-12b371d546d5',
-      'photo-1592595896619-22497f511477', 'photo-1600047509807-ba8f99d2cdde', 'photo-1600585154340-be6161a56a0c', 'photo-1600585154526-990dced4db0d',
-      'photo-1600596542815-ffad4c1539a9', 'photo-1600607687644-c7171b42498f', 'photo-1600607687939-ce8a6c25118c', 'photo-1602941525421-8f8b81d3edbb',
-      'photo-1605276374104-dee2a0ed3cd6', 'photo-1613977257363-707ba9348227', 'photo-1615529182904-14819c35db37', 'photo-1618219908412-a29a1bb7b86e',
-      'photo-1618219944342-824e40a13285', 'photo-1618220179428-22790b461013', 'photo-1618221195710-dd6b41faaea6', 'photo-1618221381711-42ca8ab6e908',
-      'photo-1628624747186-a941c476b7ef', 'photo-1628744504164-05177a80b8e8', 'photo-1448630360428-65456885c650', 'photo-1464146072230-91cabc268266',
-      'photo-1475855581690-80acf93304a3', 'photo-1484154218962-a197022b5858', 'photo-1490122417551-6ee9691429d0', 'photo-1501183007986-d0d080b147f9',
-      'photo-1501854140801-50d01698950b', 'photo-1505873242700-f289a29e1e0f', 'photo-1507089947368-19c1da9775ae', 'photo-1512915922686-57c11dde9b6b',
-      'photo-1512917774080-9991f1c4c750', 'photo-1512918751678-df1611a2f6bf', 'photo-1513584684374-8bab748fbf90', 'photo-1513694203232-719a280e022f',
-      'photo-1518780664697-55e3ad937233', 'photo-1518780664697-55e3ad937233', 'photo-1523217582562-09d0def993a6', 'photo-1542314831-068cd1dbfeeb',
-      'photo-1542838132-92c53300491e', 'photo-1564013799919-ab600027ffc6', 'photo-1568605114967-8130f3a36994', 'photo-1570129477492-45c003edd2be',
-      'photo-1572120360610-d971b9d7767c', 'photo-1575908513180-d60f43f81002', 'photo-1576941089067-2de3c901e126', 'photo-1580587771525-78b9dba3b914',
-      'photo-1582268611958-ebfd161ef9cf', 'photo-1583608205776-bfd35f0d9f83', 'photo-1584622781564-1d987f733321', 'photo-1585412727339-54e4bae3bbf9'
-    ];
+Photorealistic architectural exterior photography of a Japanese detached house, 16:9 horizontal composition, bright natural daylight, high dynamic range, tack-sharp focus, accurate straight architectural lines. This is an outdoor exterior photograph, never an interior. Absolutely no text, letters, characters, signage, logos or watermarks anywhere in the image.`;
 
-    const fallbackImages = photoIds.map(id => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=80`);
-    
-    // 未使用の画像のみにフィルタリング
-    const unusedFallbackImages = fallbackImages.filter(img => !existingEyecatches.includes(img));
-    
-    if (unusedFallbackImages.length > 0) {
-      const selectedUrl = unusedFallbackImages[Math.floor(Math.random() * unusedFallbackImages.length)];
-      console.log(`Using unused fallback Unsplash image URL: ${selectedUrl}`);
-      return { type: 'url', data: selectedUrl };
-    } else {
-      // すべて使用済みの場合は、slugのハッシュ値に基づいて決定論的にプールから選択し、リンク切れを回避
-      let hash = 0;
-      for (let i = 0; i < slug.length; i++) {
-        hash = slug.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      const index = Math.abs(hash) % fallbackImages.length;
-      const selectedUrl = fallbackImages[index];
-      console.log(`All fallback images used. Selecting deterministic image from pool: ${selectedUrl}`);
-      return { type: 'url', data: selectedUrl };
-    }
-  }
+  return renderImageWithFallback(ai, finalPrompt);
 }
 
 async function main() {
@@ -314,25 +371,20 @@ async function main() {
       article.slug = `${article.slug}-${Date.now().toString().slice(-4)}`;
     }
     
-    // 画像の自動生成
+    // 画像の生成とローカル保存（生成できなかった場合は例外を投げ、記事を追加せず終了する）
     console.log('Generating matching eyecatch image...');
-    const resultImage = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch, article.keywords, existingEyecatches, article.slug);
+    const imageBuffer = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch, article.keywords, existingEyecatches, article.slug);
     
     const blogDir = path.join(process.cwd(), 'public/blog');
     if (!fs.existsSync(blogDir)) {
       fs.mkdirSync(blogDir, { recursive: true });
     }
 
-    if (resultImage.type === 'buffer') {
-      const imageFilename = `${article.slug}.jpg`;
-      const imagePath = path.join(blogDir, imageFilename);
-      fs.writeFileSync(imagePath, resultImage.data);
-      console.log(`Saved eyecatch image to ${imagePath}`);
-      article.eyecatch = `/blog/${imageFilename}`;
-    } else {
-      console.log(`Using fallback Unsplash image URL: ${resultImage.data}`);
-      article.eyecatch = resultImage.data;
-    }
+    const imageFilename = `${article.slug}.jpg`;
+    const imagePath = path.join(blogDir, imageFilename);
+    fs.writeFileSync(imagePath, imageBuffer);
+    console.log(`Saved eyecatch image to ${imagePath}`);
+    article.eyecatch = `/blog/${imageFilename}`;
     
     // 本日の日付
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
