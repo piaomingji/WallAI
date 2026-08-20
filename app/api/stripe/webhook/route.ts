@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getUserById, saveUser, addUserCredits } from "@/lib/auth";
+import {
+  getUserById,
+  saveUser,
+  addUserCredits,
+  linkStripeCustomer,
+  getUserByStripeCustomerId,
+} from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -90,6 +96,16 @@ export async function POST(req: NextRequest) {
         if (typeof session.subscription === "string") {
           updated.stripeSubscriptionId = session.subscription;
         }
+
+        // 顧客IDを控えておく。「お支払い・解約」画面を開くときと、返金の通知から
+        // 「これは誰の支払いか」を引くときに、これが唯一の手掛かりになる。
+        const customerId =
+          typeof session.customer === "string" ? session.customer : session.customer?.id;
+        if (customerId) {
+          updated.stripeCustomerId = customerId;
+          await linkStripeCustomer(customerId, userId);
+        }
+
         await saveUser(updated);
 
         console.log(`Applied ${planId} to ${userId}: +${grant.credits} credits.`);
@@ -99,17 +115,97 @@ export async function POST(req: NextRequest) {
       // A subscription that has ended -- cancelled, or unpaid for long enough that Stripe gave up.
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = (subscription.metadata?.userId as string) || null;
-        if (!userId) break;
-
-        const user = await getUserById(userId);
-        if (!user) break;
+        const user = await findUserFor(stripe, {
+          userId: (subscription.metadata?.userId as string) || null,
+          customer: subscription.customer,
+        });
+        if (!user) {
+          console.error("A subscription ended but could not be matched to an account.");
+          break;
+        }
 
         // Credits already bought are theirs to keep; only the plan reverts.
         user.plan = "free";
         user.updatedAt = new Date().toISOString();
         await saveUser(user);
-        console.log(`Subscription ended for ${userId}; plan back to free.`);
+        console.log(`Subscription ended for ${user.id}; plan back to free.`);
+        break;
+      }
+
+      /**
+       * 契約の状態が変わったとき。
+       *
+       * 「請求期間の終わりに解約」を選ばれた場合、期間中に届くのはこの通知で、deleted ではない。
+       * カードの期限切れで支払いが止まったときも同じ。これまでは購読しているのに無視していたので、
+       * Stripeが「もう使えない」と見なした後もProのままになる余地があった。
+       */
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const user = await findUserFor(stripe, {
+          userId: (subscription.metadata?.userId as string) || null,
+          customer: subscription.customer,
+        });
+        if (!user) break;
+
+        // Stripeが有効と見なす状態だけがPro。それ以外は無料に戻す。
+        const inGoodStanding =
+          subscription.status === "active" || subscription.status === "trialing";
+        const nextPlan = inGoodStanding ? "pro" : "free";
+        if (user.plan !== nextPlan) {
+          user.plan = nextPlan;
+          user.updatedAt = new Date().toISOString();
+          await saveUser(user);
+          console.log(
+            `Subscription for ${user.id} is now "${subscription.status}"; plan set to ${nextPlan}.`
+          );
+        }
+        break;
+      }
+
+      /**
+       * 返金。
+       *
+       * これまでは何も起きなかった。返金を受けた人がProのまま使い続けられ、しかも契約が
+       * 生きているので翌月また請求されていた。ここで権利を戻し、契約も止める。
+       */
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge;
+
+        // 一部返金は「何を返したのか」が判断できないので、自動では戻さない。
+        if (!charge.refunded) {
+          console.log("Partial refund; entitlements left untouched for a human to decide.");
+          break;
+        }
+
+        const user = await findUserFor(stripe, {
+          customer: charge.customer,
+          paymentIntent: charge.payment_intent,
+        });
+        if (!user) {
+          console.error("A refund could not be matched to an account; nothing was reverted.");
+          break;
+        }
+
+        // 返金の通知には planId が載らないので、金額から逆に引く。
+        const grant = GRANTS[planFromAmount(charge.amount)];
+        if (grant) {
+          user.credits = Math.max(0, user.credits - grant.credits);
+          if (grant.plan) user.plan = "free";
+        }
+
+        // 定期課金を返金したなら契約も止める。放置すると翌月また請求されてしまう。
+        if (user.stripeSubscriptionId) {
+          try {
+            await stripe.subscriptions.cancel(user.stripeSubscriptionId);
+            user.plan = "free";
+          } catch (err) {
+            console.warn("The subscription was already gone, or could not be cancelled:", err);
+          }
+        }
+
+        user.updatedAt = new Date().toISOString();
+        await saveUser(user);
+        console.log(`Refund applied to ${user.id}: plan ${user.plan}, credits ${user.credits}.`);
         break;
       }
 
@@ -123,6 +219,61 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+/** 返金の通知には planId が載らないため、金額から逆に引く。 */
+function planFromAmount(amount: number | null): string {
+  if (amount === 19800) return "business";
+  if (amount === 4980) return "pro";
+  if (amount === 1480) return "quota";
+  return "";
+}
+
+/**
+ * 通知に載っている手掛かりから、その支払いの持ち主を探す。
+ *
+ * 手掛かりは通知の種類によって違う。こちらが付けた userId があればそれが一番確実で、
+ * 無ければ顧客ID、それも無ければ（一回払いでは顧客が作られないことがある）決済セッションを
+ * 引き当てて `client_reference_id` を見る。
+ */
+async function findUserFor(
+  stripe: Stripe,
+  hints: {
+    userId?: string | null;
+    customer?: string | { id: string } | null;
+    paymentIntent?: string | { id: string } | null;
+  }
+) {
+  if (hints.userId) {
+    const byId = await getUserById(hints.userId);
+    if (byId) return byId;
+  }
+
+  const customerId = typeof hints.customer === "string" ? hints.customer : hints.customer?.id;
+  if (customerId) {
+    const byCustomer = await getUserByStripeCustomerId(customerId);
+    if (byCustomer) return byCustomer;
+  }
+
+  const paymentIntentId =
+    typeof hints.paymentIntent === "string" ? hints.paymentIntent : hints.paymentIntent?.id;
+  if (paymentIntentId) {
+    try {
+      const sessions = await stripe.checkout.sessions.list({
+        payment_intent: paymentIntentId,
+        limit: 1,
+      });
+      const reference = sessions.data[0]?.client_reference_id;
+      if (reference) {
+        const bySession = await getUserById(reference);
+        if (bySession) return bySession;
+      }
+    } catch (err) {
+      console.error("Could not trace a payment back to an account:", err);
+    }
+  }
+
+  return null;
 }
 
 /** Falls back to the amount when metadata is absent, for sessions created before it was set. */

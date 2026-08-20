@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { LogIn, UserPlus, LogOut, Zap, Crown, ChevronDown } from "lucide-react";
+import { LogIn, UserPlus, LogOut, Zap, Crown, ChevronDown, CreditCard } from "lucide-react";
 
 export const UserNav: React.FC = () => {
   const { user, loading, openAuthModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState("");
 
   if (loading) {
     return <div className="h-9 w-24 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />;
@@ -70,6 +72,38 @@ export const UserNav: React.FC = () => {
               <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{user.name}</p>
               <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
             </div>
+            {(user.hasPurchased || user.plan === "pro" || user.plan === "unlimited") && (
+              <>
+                <button
+                  onClick={async () => {
+                    setPortalError("");
+                    setPortalLoading(true);
+                    try {
+                      const res = await fetch("/api/billing-portal", { method: "POST" });
+                      const data = await res.json();
+                      if (data.url) {
+                        window.location.href = data.url;
+                        return;
+                      }
+                      setPortalError(data.error || "お支払い画面を開けませんでした。");
+                    } catch {
+                      setPortalError("お支払い画面を開けませんでした。");
+                    }
+                    setPortalLoading(false);
+                  }}
+                  disabled={portalLoading}
+                  className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>{portalLoading ? "開いています…" : "お支払い・解約"}</span>
+                </button>
+                {portalError && (
+                  <p className="px-4 pb-2 text-[11px] leading-relaxed text-red-600 dark:text-red-400">
+                    {portalError}
+                  </p>
+                )}
+              </>
+            )}
             <button
               onClick={() => {
                 setDropdownOpen(false);

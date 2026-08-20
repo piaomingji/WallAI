@@ -58,6 +58,8 @@ export interface UserProfile {
 const USER_KEY = (id: string) => `wall_ai:user:${id}`;
 const USER_BY_EMAIL_KEY = (email: string) => `wall_ai:user-email:${email.toLowerCase()}`;
 const USER_AUTH_KEY = (id: string) => `wall_ai:user-auth:${id}`;
+const USER_BY_STRIPE_CUSTOMER_KEY = (customerId: string) =>
+  `wall_ai:user-stripe-customer:${customerId}`;
 
 export async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -174,6 +176,22 @@ export async function getUserByEmail(email: string): Promise<UserProfile | null>
   }
   // Only as a last resort: a returning visitor whose account predates the store being connected.
   return await getRegisteredUserFromCookie(normalizedEmail);
+}
+
+/**
+ * Stripeの顧客IDから利用者を引けるようにしておく。
+ *
+ * 返金や契約状態の変化の通知には、こちらが付けた userId が載っていないことがある。
+ * 顧客IDだけは必ず載っているので、その対応表をここに持たせている。
+ */
+export async function linkStripeCustomer(customerId: string, userId: string): Promise<void> {
+  await storeSetString(USER_BY_STRIPE_CUSTOMER_KEY(customerId), userId);
+}
+
+export async function getUserByStripeCustomerId(customerId: string): Promise<UserProfile | null> {
+  const userId = await storeGetString(USER_BY_STRIPE_CUSTOMER_KEY(customerId));
+  if (!userId) return null;
+  return await getUserById(userId);
 }
 
 export async function verifyUserPassword(userId: string, password: string): Promise<boolean> {

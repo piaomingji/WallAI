@@ -9,6 +9,7 @@ export interface UserProfile {
   avatarUrl?: string;
   plan: "free" | "pro" | "unlimited";
   credits: number;
+  hasPurchased?: boolean;
   createdAt: string;
 }
 
