@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
     const params = new URLSearchParams();
     params.append('entry.256677115', name);       // お名前
     params.append('entry.786759119', email);        // メールアドレス
-    params.append('entry.973342212', subject);      // 件名
+    // 4アプリが同じGoogleフォームを共有していて、どのアプリから来たのかを示す項目が
+    // ありません。件名の頭にアプリ名を付けて、受信側で見分けられるようにしています。
+    params.append('entry.973342212', `[WallAI] ${subject}`);      // 件名
     params.append('entry.1795818340', message);      // お問い合わせ内容
     params.append('entry.2093645915', type || 'その他');      // お問い合わせ種別
 
