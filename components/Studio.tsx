@@ -1064,7 +1064,9 @@ export default function Studio() {
                 {!byokMode && (
                   <div className="flex justify-between items-center text-xs font-semibold text-ink-soft bg-paper-raised px-4 py-3 rounded-xl border border-line select-none shadow-sm">
                     <span>シミュレーター残数:</span>
-                    {userPlan === 'pro' ? (
+                    {user && (user.plan === 'pro' || user.plan === 'unlimited') ? (
+                      <span className="text-clay font-bold animate-pulse">PROプラン（使い放題）</span>
+                    ) : userPlan === 'pro' ? (
                       <span className="text-clay font-bold animate-pulse">PROプラン（使い放題）</span>
                     ) : userPlan === 'business' ? (
                       <span className="text-clay-deep font-bold animate-pulse">法人プラン（使い放題）</span>

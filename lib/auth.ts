@@ -194,7 +194,9 @@ export async function deductUserCredit(userId?: string): Promise<{ success: bool
   if (!user) return { success: false, remainingCredits: 0 };
 
   if (user.plan === "pro" || user.plan === "unlimited") {
-    return { success: true, remainingCredits: 999 };
+    // Pro/unlimited は回数を消費しない。ここで 999 のようなダミー値を返すと
+    // 画面が「残り999回」と表示してしまうため、実際の残高をそのまま返す。
+    return { success: true, remainingCredits: user.credits };
   }
 
   if (user.credits <= 0) {
