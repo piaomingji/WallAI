@@ -77,6 +77,40 @@ const responseSchema = {
 };
 
 // 既存の記事と重複しない新しいトピックをGeminiで自動生成する関数
+// Gemini API は混雑時に 503 / 429 / 500 を返すことがある。
+// （2026-08-21、Studio AI の自動生成が「This model is currently experiencing high demand」で
+//   1回で諦めて失敗した。記事本文を書くステップには再試行が無かった。）
+// 一時的な失敗なら待って自動で試し直す。指定回数を使い切ったときだけ例外にする。
+// （2026-08-22、この定義だけが巻き戻って消え、withRetry is not defined で3アプリとも
+//   毎日の自動生成が落ちていた。呼び出し側と必ずセットで残すこと。）
+const API_RETRIES = 4;
+const RETRYABLE_HTTP = [408, 429, 500, 502, 503, 504];
+
+function isRetryableApiError(error) {
+  const status = Number(error?.status ?? error?.code ?? error?.response?.status);
+  if (RETRYABLE_HTTP.includes(status)) return true;
+  const text = `${error?.message ?? ''} ${error?.status ?? ''}`;
+  return /UNAVAILABLE|RESOURCE_EXHAUSTED|INTERNAL|DEADLINE_EXCEEDED|high demand|overloaded|rate limit|try again|ECONNRESET|ETIMEDOUT|fetch failed/i.test(text);
+}
+
+// label は失敗時のログに出す作業名
+async function withRetry(label, fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= API_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableApiError(error) || attempt === API_RETRIES) throw error;
+      const waitMs = Math.min(60000, 15000 * attempt);
+      console.log(`  ${label}: 一時的なエラー (${attempt}/${API_RETRIES}) ${String(error?.message ?? error).slice(0, 200)}`);
+      console.log(`  ${Math.round(waitMs / 1000)}秒待ってから再試行します...`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
+}
+
 async function generateUniqueTopic(existingTitles, existingKeywords) {
   const prompt = `
 あなたは住宅リフォームおよび外壁塗装の専門家であり、SEOコンサルタントです。
@@ -102,21 +136,23 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
 
   console.log('Generating a completely new, unique topic using Gemini...');
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          keyword: { type: 'string' },
-          titleHint: { type: 'string' }
-        },
-        required: ['keyword', 'titleHint']
+  const response = await withRetry('テーマの生成', () =>
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object',
+          properties: {
+            keyword: { type: 'string' },
+            titleHint: { type: 'string' }
+          },
+          required: ['keyword', 'titleHint']
+        }
       }
-    }
-  });
+    })
+  );
 
   const generated = JSON.parse(response.text);
   console.log(`Generated Dynamic Topic: [Keyword: ${generated.keyword}] [TitleHint: ${generated.titleHint}]`);
@@ -143,14 +179,16 @@ async function generateArticle(selectedTopic) {
 `;
 
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: responseSchema,
-    }
-  });
+  const response = await withRetry('記事本文の生成', () =>
+    ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: responseSchema,
+      }
+    })
+  );
 
   const textContent = response.text;
   if (!textContent) {
@@ -273,7 +311,7 @@ async function renderImageWithFallback(ai, prompt) {
         console.log(`画像生成に成功しました: ${model} (${Math.round(buffer.length / 1024)}KB)`);
         return compressJpeg(buffer);
       }
-      if (attempt < ATTEMPTS_PER_MODEL) await sleep(4000);
+      if (attempt < ATTEMPTS_PER_MODEL) await sleep(20000);
     }
   }
   throw new Error(
