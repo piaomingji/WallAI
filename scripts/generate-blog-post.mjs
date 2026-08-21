@@ -76,38 +76,6 @@ const responseSchema = {
   required: ['slug', 'title', 'excerpt', 'keywords', 'contentHtml']
 };
 
-// Gemini API は混雑時に 503 / 429 / 500 を返すことがある。
-// （2026-08-21、Studio AI の自動生成が「This model is currently experiencing high demand」で
-//   1回で諦めて失敗した。記事本文を書くステップには再試行が無かった。）
-// 一時的な失敗なら待って自動で試し直す。指定回数を使い切ったときだけ例外にする。
-const API_RETRIES = 4;
-const RETRYABLE_HTTP = [408, 429, 500, 502, 503, 504];
-
-function isRetryableApiError(error) {
-  const status = Number(error?.status ?? error?.code ?? error?.response?.status);
-  if (RETRYABLE_HTTP.includes(status)) return true;
-  const text = `${error?.message ?? ''} ${error?.status ?? ''}`;
-  return /UNAVAILABLE|RESOURCE_EXHAUSTED|INTERNAL|DEADLINE_EXCEEDED|high demand|overloaded|rate limit|try again|ECONNRESET|ETIMEDOUT|fetch failed/i.test(text);
-}
-
-// label は失敗時のログに出す作業名
-async function withRetry(label, fn) {
-  let lastError;
-  for (let attempt = 1; attempt <= API_RETRIES; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (!isRetryableApiError(error) || attempt === API_RETRIES) throw error;
-      const waitMs = Math.min(60000, 15000 * attempt);
-      console.log(`  ${label}: 一時的なエラー (${attempt}/${API_RETRIES}) ${String(error?.message ?? error).slice(0, 200)}`);
-      console.log(`  ${Math.round(waitMs / 1000)}秒待ってから再試行します...`);
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
-  }
-  throw lastError;
-}
-
 // 既存の記事と重複しない新しいトピックをGeminiで自動生成する関数
 async function generateUniqueTopic(existingTitles, existingKeywords) {
   const prompt = `
@@ -134,8 +102,7 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
 
   console.log('Generating a completely new, unique topic using Gemini...');
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await withRetry('テーマの生成', () =>
-    ai.models.generateContent({
+  const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
@@ -149,8 +116,7 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
         required: ['keyword', 'titleHint']
       }
     }
-  })
-  );
+  });
 
   const generated = JSON.parse(response.text);
   console.log(`Generated Dynamic Topic: [Keyword: ${generated.keyword}] [TitleHint: ${generated.titleHint}]`);
@@ -177,16 +143,14 @@ async function generateArticle(selectedTopic) {
 `;
 
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await withRetry('記事本文の生成', () =>
-    ai.models.generateContent({
+  const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
       responseSchema: responseSchema,
     }
-  })
-  );
+  });
 
   const textContent = response.text;
   if (!textContent) {
@@ -309,7 +273,7 @@ async function renderImageWithFallback(ai, prompt) {
         console.log(`画像生成に成功しました: ${model} (${Math.round(buffer.length / 1024)}KB)`);
         return compressJpeg(buffer);
       }
-      if (attempt < ATTEMPTS_PER_MODEL) await sleep(20000);
+      if (attempt < ATTEMPTS_PER_MODEL) await sleep(4000);
     }
   }
   throw new Error(
@@ -317,10 +281,65 @@ async function renderImageWithFallback(ai, prompt) {
   );
 }
 
+// 同じような写真ばかり並ばないよう、記事ごとに家の様式・アングル・光・色を変える
+// 以前は「白い2階建て・暗い屋根・青空・斜め45度」ばかりが並んでしまっていた。
+// 記事番号で順に割り当てるので、隣り合う記事は必ず別の組み合わせになる。
+// 周期（7 / 6 / 5 / 8）が互いに素なので、組み合わせは実質繰り返さない。
+const HOUSE_STYLES = [
+  'a two-storey gabled Japanese house with lap siding',
+  'a modern single-slope (片流れ) roof house with vertical galvalume cladding',
+  'a traditional Japanese house with dark glazed roof tiles and a low garden wall',
+  'a smooth stucco-finish minimalist cube house',
+  'a single-storey (平屋) house with deep eaves and a wooden deck',
+  'a narrow three-storey townhouse on a tight urban lot',
+  'a two-storey house mixing painted board siding with a wood-slat accent wall'
+];
+
+const WALL_COLOURS = [
+  'warm beige walls with a dark brown roof',
+  'cool light grey walls with a charcoal roof',
+  'crisp off-white walls with a matte black roof',
+  'deep navy walls with white trim',
+  'charcoal walls with warm wood accents',
+  'soft sand-and-white two-tone walls'
+];
+
+const CAMERA_ANGLES = [
+  'a straight-on frontal elevation of the facade, filling the frame',
+  'a three-quarter view from the corner of the property',
+  'a low camera angle looking slightly up at the facade',
+  'a close, detailed view of one wall surface and its texture',
+  'a wider street-level view showing the house in its neighbourhood'
+];
+
+const LIGHT_MOODS = [
+  'bright clear midday sunlight with a deep blue sky',
+  'warm low late-afternoon sun raking across the wall',
+  'soft even light under a lightly overcast sky',
+  'early morning light with long soft shadows',
+  'golden hour just before sunset, warm and glowing',
+  'the blue hour after sunset with warm windows lit from inside',
+  'crisp light after rain, with wet paving reflecting the sky',
+  'bright hazy summer light with strong contrast'
+];
+
+// sequence は「何本目の記事か」。連番なので隣り合う記事の絵柄が必ずずれる
+function pickVariation(sequence) {
+  const n = Math.abs(Math.trunc(Number(sequence) || 0));
+  return {
+    house: HOUSE_STYLES[n % HOUSE_STYLES.length],
+    colour: WALL_COLOURS[n % WALL_COLOURS.length],
+    camera: CAMERA_ANGLES[n % CAMERA_ANGLES.length],
+    light: LIGHT_MOODS[n % LIGHT_MOODS.length]
+  };
+}
+
 // 記事の内容に沿ったアイキャッチ画像を生成する（必ず Buffer を返す。作れなければ例外）
-async function generateImage(title, excerpt, defaultEyecatch, keywords, existingEyecatches, slug) {
+async function generateImage(title, excerpt, defaultEyecatch, keywords, existingEyecatches, slug, sequence) {
   console.log(`Generating matching eyecatch image for slug: ${slug}`);
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
+  const variation = pickVariation(sequence);
+  console.log(`  この記事の絵柄: ${variation.house} / ${variation.colour} / ${variation.camera}`);
 
   const promptForImagePrompt = `
 You are an expert prompt engineer for Google's Gemini image model (Nano Banana).
@@ -330,32 +349,48 @@ Article Title: ${title}
 Article Excerpt: ${excerpt}
 Keywords: ${(keywords || []).join(', ')}
 
-RULES
-1. THIS IS AN EXTERIOR TOPIC. The photograph must show the OUTSIDE of a Japanese detached house (外観). NEVER describe an interior room, living room, furniture, or indoor lighting.
-2. THE SUBJECT MUST MATCH THE ARTICLE. Read the title carefully:
-   - ベージュ / グレー / 色選び -> a modern house whose walls clearly show those colours
-   - ツートン -> a house with an obvious two-tone wall colour split
-   - 遮熱塗料 -> a sunlit house exterior under a strong bright sky
-   - シーリング / コーキング -> a close view of the joint lines between siding boards
-   - サイディング -> a house with clean, sharply detailed siding texture
-   - モルタル -> a house with mortar/stucco wall texture
-   - 雨樋 -> a composition where the rain gutter along the eaves is clearly visible
-   - ALC -> a house with the characteristic panel joints of ALC board walls
-   - カビ / 苔 / 汚れ / 劣化 -> the affected wall surface as the focus, shown honestly but photographed beautifully
-   - 屋根 -> a composition that clearly shows the roof
-   - 費用 / 業者選び / 補助金 -> a handsome, well-maintained modern Japanese house exterior that conveys value
-   - 季節 / 時期 -> the exterior with a clear seasonal sky and seasonal trees
-3. Describe a photorealistic architectural exterior photograph taken in Japan. Demand: straight vertical walls, correct perspective, tack-sharp focus, physically plausible construction, no warped or melted shapes, no duplicated windows, no impossible geometry.
-4. Bright natural daylight or warm late-afternoon sun, clean street or tidy front garden, subtle greenery, the quality level of an architectural magazine feature.
-5. The image must contain NO text, NO Japanese characters, NO letters, NO signage, NO logos, NO watermarks, NO UI elements, NO borders, and NO people.
-6. Output ONLY the prompt text, with no preamble or closing remarks.
+VARIATION FOR THIS ARTICLE — this matters as much as the subject
+This blog already has many cover photos and they were all turning out the same: a white
+two-storey house with a dark roof, shot from a 45-degree angle under a blue sky.
+Do not produce that again. Unless the article clearly requires otherwise, build this photo around:
+  - House style: ${variation.house}
+  - Colour:      ${variation.colour}
+  - Camera:      ${variation.camera}
+  - Light:       ${variation.light}
+Write the house style, wall colour, camera angle and lighting explicitly into the prompt.
+
+THIS IS AN EXTERIOR TOPIC. The photograph must show the OUTSIDE of a Japanese detached house.
+NEVER describe an interior room, furniture, or indoor lighting.
+
+ARTICLE-DRIVEN EXCEPTIONS (these override the variation above)
+  - ベージュ / グレー / 色選び / ツートン -> use the colours the article names, not the variation colour
+  - シーリング / コーキング -> a close view of the joint lines between siding boards
+  - サイディング -> sharply detailed siding texture
+  - モルタル -> mortar/stucco wall texture, possibly with fine cracks
+  - 雨樋 -> a composition where the rain gutter along the eaves is clearly visible
+  - ALC -> the characteristic panel joints of ALC board walls
+  - カビ / 苔 / 汚れ / 劣化 / 爆裂 -> the affected wall surface as the focus, shown honestly but photographed well
+  - 屋根 -> a composition that clearly shows the roof
+  - 遮熱 -> strong sunlight on the wall or roof
+  - DIY / 施工 / 業者 -> a painter at work on scaffolding or a ladder
+  - 季節 / 時期 -> a seasonal sky and seasonal trees that match the article
+
+QUALITY RULES
+1. Photorealistic architectural exterior photography taken in Japan. Straight vertical walls,
+   correct perspective, tack-sharp focus, physically plausible construction. No warped or
+   melted shapes, no duplicated windows, no impossible geometry.
+2. Tidy surroundings: a clean street or front garden with subtle greenery.
+   Architectural magazine quality.
+3. The image must contain NO text, NO Japanese characters, NO letters, NO signage,
+   NO logos, NO watermarks, NO UI elements and NO borders.
+4. Output ONLY the prompt text, with no preamble or closing remarks.
 `;
 
   const promptResponse = await withRetry('画像プロンプトの生成', () =>
     ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: promptForImagePrompt
-  })
+      model: 'gemini-2.5-flash',
+      contents: promptForImagePrompt
+    })
   );
 
   const imagePrompt = promptResponse.text.trim();
@@ -363,7 +398,7 @@ RULES
 
   const finalPrompt = `${imagePrompt}
 
-Photorealistic architectural exterior photography of a Japanese detached house, 16:9 horizontal composition, bright natural daylight, high dynamic range, tack-sharp focus, accurate straight architectural lines. This is an outdoor exterior photograph, never an interior. Absolutely no text, letters, characters, signage, logos or watermarks anywhere in the image.`;
+Photorealistic architectural exterior photography of a Japanese detached house, 16:9 horizontal composition, high dynamic range, tack-sharp focus, accurate straight architectural lines. This is an outdoor exterior photograph, never an interior. Absolutely no text, letters, characters, signage, logos or watermarks anywhere in the image.`;
 
   return renderImageWithFallback(ai, finalPrompt);
 }
@@ -411,7 +446,8 @@ async function main() {
     
     // 画像の生成とローカル保存（生成できなかった場合は例外を投げ、記事を追加せず終了する）
     console.log('Generating matching eyecatch image...');
-    const imageBuffer = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch, article.keywords, existingEyecatches, article.slug);
+    const imageBuffer = await generateImage(article.title, article.excerpt, selectedTopic.defaultEyecatch,
+      article.keywords, existingEyecatches, article.slug, existingSlugs.length);
     
     const blogDir = path.join(process.cwd(), 'public/blog');
     if (!fs.existsSync(blogDir)) {
