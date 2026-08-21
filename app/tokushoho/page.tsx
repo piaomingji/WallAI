@@ -23,7 +23,7 @@ export default function TokushohoPage() {
               <div className="grid grid-cols-1 p-6 sm:grid-cols-3 sm:gap-4">
                 <dt className="font-bold text-ink">事業者名</dt>
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
-                  WallAI運営事務局<br />
+                  WallAI運営事務局（個人事業主）<br />
                   <span className="text-xs text-ink-faint">
                     ※その他事業者情報（所在地・電話番号等）については、以下のお問い合わせ窓口よりご請求いただいた場合、遅滞なく電子メール等で開示いたします。
                   </span>
@@ -33,7 +33,7 @@ export default function TokushohoPage() {
               <div className="grid grid-cols-1 p-6 sm:grid-cols-3 sm:gap-4">
                 <dt className="font-bold text-ink">代表者名</dt>
                 <dd className="mt-1 text-ink-soft sm:col-span-2 sm:mt-0">
-                  請求があった場合、遅滞なく電子メール等で開示します。
+                  吉澤 友里
                 </dd>
               </div>
 
