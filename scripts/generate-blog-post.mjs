@@ -76,6 +76,38 @@ const responseSchema = {
   required: ['slug', 'title', 'excerpt', 'keywords', 'contentHtml']
 };
 
+// Gemini API は混雑時に 503 / 429 / 500 を返すことがある。
+// （2026-08-21、Studio AI の自動生成が「This model is currently experiencing high demand」で
+//   1回で諦めて失敗した。記事本文を書くステップには再試行が無かった。）
+// 一時的な失敗なら待って自動で試し直す。指定回数を使い切ったときだけ例外にする。
+const API_RETRIES = 4;
+const RETRYABLE_HTTP = [408, 429, 500, 502, 503, 504];
+
+function isRetryableApiError(error) {
+  const status = Number(error?.status ?? error?.code ?? error?.response?.status);
+  if (RETRYABLE_HTTP.includes(status)) return true;
+  const text = `${error?.message ?? ''} ${error?.status ?? ''}`;
+  return /UNAVAILABLE|RESOURCE_EXHAUSTED|INTERNAL|DEADLINE_EXCEEDED|high demand|overloaded|rate limit|try again|ECONNRESET|ETIMEDOUT|fetch failed/i.test(text);
+}
+
+// label は失敗時のログに出す作業名
+async function withRetry(label, fn) {
+  let lastError;
+  for (let attempt = 1; attempt <= API_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableApiError(error) || attempt === API_RETRIES) throw error;
+      const waitMs = Math.min(60000, 15000 * attempt);
+      console.log(`  ${label}: 一時的なエラー (${attempt}/${API_RETRIES}) ${String(error?.message ?? error).slice(0, 200)}`);
+      console.log(`  ${Math.round(waitMs / 1000)}秒待ってから再試行します...`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
+}
+
 // 既存の記事と重複しない新しいトピックをGeminiで自動生成する関数
 async function generateUniqueTopic(existingTitles, existingKeywords) {
   const prompt = `
@@ -102,7 +134,8 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
 
   console.log('Generating a completely new, unique topic using Gemini...');
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await ai.models.generateContent({
+  const response = await withRetry('テーマの生成', () =>
+    ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
@@ -116,7 +149,8 @@ ${existingTitles.map(t => `- ${t}`).join('\n')}
         required: ['keyword', 'titleHint']
       }
     }
-  });
+  })
+  );
 
   const generated = JSON.parse(response.text);
   console.log(`Generated Dynamic Topic: [Keyword: ${generated.keyword}] [TitleHint: ${generated.titleHint}]`);
@@ -143,14 +177,16 @@ async function generateArticle(selectedTopic) {
 `;
 
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, vertexai: false });
-  const response = await ai.models.generateContent({
+  const response = await withRetry('記事本文の生成', () =>
+    ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
       responseSchema: responseSchema,
     }
-  });
+  })
+  );
 
   const textContent = response.text;
   if (!textContent) {
@@ -273,7 +309,7 @@ async function renderImageWithFallback(ai, prompt) {
         console.log(`画像生成に成功しました: ${model} (${Math.round(buffer.length / 1024)}KB)`);
         return compressJpeg(buffer);
       }
-      if (attempt < ATTEMPTS_PER_MODEL) await sleep(4000);
+      if (attempt < ATTEMPTS_PER_MODEL) await sleep(20000);
     }
   }
   throw new Error(
@@ -315,10 +351,12 @@ RULES
 6. Output ONLY the prompt text, with no preamble or closing remarks.
 `;
 
-  const promptResponse = await ai.models.generateContent({
+  const promptResponse = await withRetry('画像プロンプトの生成', () =>
+    ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: promptForImagePrompt
-  });
+  })
+  );
 
   const imagePrompt = promptResponse.text.trim();
   console.log(`Generated Image Prompt: ${imagePrompt}`);

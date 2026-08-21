@@ -2,8 +2,9 @@ name: AI Blog Auto Generator
 
 on:
   schedule:
-    # 毎日日本時間午前3時 (UTC 18:00) に自動実行
-    - cron: '0 18 * * *'
+    # 毎日日本時間午前3時20分に自動実行
+    # 3アプリが同時にGemini APIを叩かないよう20分ずつずらしている
+    - cron: '20 18 * * *'
   workflow_dispatch: # 手動実行も可能にする
 
 jobs:
