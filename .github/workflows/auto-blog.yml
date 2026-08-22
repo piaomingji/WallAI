@@ -25,10 +25,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # コードが壊れていないかを先に確かめる（APIもお金も使わない・約30秒）。
+      # 2026-08-22、withRetry の定義が巻き戻りで消えて3アプリとも落ちた。
+      # ここで落ちれば、失敗の理由がログの先頭ではっきり分かる。
+      - name: Check blog scripts
+        run: SMOKE_SKIP_RETRY=1 node scripts/smoke-test-blog.mjs
+
+      # Gemini が混雑していると失敗することがあるので、10分あけて最大3回試す。
+      # 1回きりで諦めるとその日の記事が丸ごと欠ける。
       - name: Generate new blog post
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node scripts/generate-blog-post.mjs
+        run: |
+          for attempt in 1 2 3; do
+            echo "===== 記事の生成 試行 $attempt/3 ====="
+            if node scripts/generate-blog-post.mjs; then
+              echo "生成に成功しました（試行 $attempt 回目）"
+              exit 0
+            fi
+            echo "試行 $attempt は失敗しました。作業ツリーを元に戻します。"
+            git checkout -- lib/blog.ts || true
+            git clean -fd public/blog || true
+            if [ "$attempt" -lt 3 ]; then
+              echo "10分待ってから試し直します..."
+              sleep 600
+            fi
+          done
+          echo "3回試しても記事を生成できませんでした。ログの上のほうにエラーの全文があります。"
+          exit 1
 
       - name: Commit and push changes
         run: |

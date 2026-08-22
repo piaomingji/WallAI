@@ -1,0 +1,33 @@
+name: ブログ生成スクリプトの検査
+
+# scripts/ を触ったら必ず走る、お金もAPIも使わない検査。
+# 2026-08-22、コミットの巻き戻しで withRetry の定義だけが消え、
+# 毎朝の自動生成が丸1日ぶん落ちた。同じことを push の時点で止めるために置いている。
+# ここが赤くなったら、その日の記事は作られない。必ず直してから放置しないこと。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/blog-script-check.yml'
+      - '.github/workflows/auto-blog.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: ブログ生成スクリプトの検査
+        run: node scripts/smoke-test-blog.mjs
