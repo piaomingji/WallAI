@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import PortalLinks from '@/components/PortalLinks';
 import { blogPosts } from '@/lib/blog';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -123,6 +124,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             </div>
           </article>
         </div>
+      <PortalLinks />
       </main>
       <Footer />
     </div>

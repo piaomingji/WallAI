@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import PortalLinks from '@/components/PortalLinks';
 import { blogPosts } from '@/lib/blog';
 import Link from 'next/link';
 
@@ -77,6 +78,7 @@ export default function BlogListPage() {
             ))}
           </div>
         </div>
+      <PortalLinks />
       </main>
       <Footer />
     </div>
