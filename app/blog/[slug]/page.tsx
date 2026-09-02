@@ -18,6 +18,8 @@ export async function generateStaticParams() {
   }));
 }
 
+const siteUrl = 'https://wall.smart-ai-portal.com';
+
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
   const post = blogPosts.find((p) => p.slug === slug);
@@ -27,7 +29,6 @@ export async function generateMetadata({ params }: PageProps) {
     };
   }
 
-  const siteUrl = 'https://wall.smart-ai-portal.com';
   const imageUrl = post.eyecatch.startsWith('http') 
     ? post.eyecatch 
     : `${siteUrl}${post.eyecatch}`;
@@ -36,6 +37,9 @@ export async function generateMetadata({ params }: PageProps) {
     title: `${post.title} - WallAI`,
     description: post.excerpt,
     keywords: post.keywords.join(', '),
+    alternates: {
+      canonical: `${siteUrl}/blog/${post.slug}`,
+    },
     openGraph: {
       title: `${post.title} - WallAI`,
       description: post.excerpt,
@@ -66,6 +70,40 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
+    {/* 構造化データ: 記事・パンくず */}
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'BlogPosting',
+              '@id': `${siteUrl}/blog/${post.slug}#article`,
+              headline: post.title,
+              description: post.excerpt,
+              image: post.eyecatch.startsWith('http') ? post.eyecatch : `${siteUrl}${post.eyecatch}`,
+              datePublished: post.date,
+              dateModified: post.date,
+              keywords: post.keywords.join(', '),
+              inLanguage: 'ja',
+              mainEntityOfPage: { '@type': 'WebPage', '@id': `${siteUrl}/blog/${post.slug}` },
+              author: { '@type': 'Organization', name: 'WallAI', url: siteUrl },
+              publisher: { '@type': 'Organization', name: 'WallAI', url: siteUrl },
+            },
+            {
+              '@type': 'BreadcrumbList',
+              '@id': `${siteUrl}/blog/${post.slug}#breadcrumb`,
+              itemListElement: [
+                { '@type': 'ListItem', position: 1, name: 'WallAI', item: siteUrl },
+                { '@type': 'ListItem', position: 2, name: '外壁塗装お役立ちブログ', item: `${siteUrl}/blog` },
+                { '@type': 'ListItem', position: 3, name: post.title, item: `${siteUrl}/blog/${post.slug}` },
+              ],
+            },
+          ],
+        }),
+      }}
+    />
       <Header />
       <main className="flex-1 bg-paper-raised">
         <div className="mx-auto max-w-3xl px-6 py-20">
