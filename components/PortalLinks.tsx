@@ -6,7 +6,7 @@ const TOOLS = [
   { slug: 'studio', name: 'Studio AI', desc: '証明写真・プロフィール写真の作成' },
   { slug: 'amazon', name: 'Amazon セラー AI', desc: 'Amazon出品カタログの自動生成' },
   { slug: 'frima', name: 'Frima AI', desc: 'フリマ出品文の自動作成' },
-  { slug: 'talkie', name: 'Talkie AI', desc: '17言語のリアルタイム音声翻訳' },
+  { slug: 'talkie', name: 'Talkie AI', desc: '78言語のリアルタイム音声翻訳' },
 ];
 
 export default function PortalLinks() {
