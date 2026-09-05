@@ -4,8 +4,8 @@ const PORTAL_URL = 'https://smart-ai-portal.com';
 const TOOLS = [
   { slug: 'reroom', name: 'ReRoom AI', desc: '部屋・インテリアのAI再設計' },
   { slug: 'studio', name: 'Studio AI', desc: '証明写真・プロフィール写真の作成' },
-  { slug: 'amazon', name: 'Amazon セラー AI', desc: 'Amazon出品カタログの自動生成' },
-  { slug: 'frima', name: 'Frima AI', desc: 'フリマ出品文の自動作成' },
+  { slug: 'amazon', name: 'Amazon出品PRO AI', desc: 'Amazon出品カタログの自動生成' },
+  { slug: 'frima', name: 'フリマ出品PRO AI', desc: 'フリマ出品文の自動作成' },
   { slug: 'talkie', name: 'Talkie AI', desc: '78言語のリアルタイム音声翻訳' },
 ];
 
